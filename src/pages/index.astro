@@ -38,6 +38,10 @@ export const prerender = false;
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       กิจกรรม
     </button>
+    <button onclick="showView('users')" class="nav-item w-full text-left hidden" id="nav-users" data-root-only>
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m10-6.13a3 3 0 11-6 0 3 3 0 016 0zm-8 0a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      ผู้ใช้
+    </button>
   </nav>
 
   <!-- Bottom -->
@@ -126,6 +130,39 @@ export const prerender = false;
     </div>
     <div id="activities-list" class="space-y-3"></div>
   </div>
+
+  <!-- USERS (root only) -->
+  <div id="view-users" class="hidden p-6">
+    <div class="mb-6">
+      <h1 class="text-xl font-semibold">จัดการผู้ใช้</h1>
+      <p class="text-ric-gray text-sm mt-0.5">เฉพาะ root · สร้างผู้ใช้พร้อมรหัสผ่าน เปลี่ยนสิทธิ์ และลบผู้ใช้</p>
+    </div>
+    <form id="user-form" class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6" onsubmit="createUser(event)">
+      <div>
+        <label class="field-label">อีเมล *</label>
+        <input class="field-input" id="user-email" type="email" required autocomplete="off" placeholder="name@ricroyal.co.th" />
+      </div>
+      <div>
+        <label class="field-label">ชื่อที่แสดง *</label>
+        <input class="field-input" id="user-name" required placeholder="ชื่อ-นามสกุล" />
+      </div>
+      <div>
+        <label class="field-label">รหัสผ่าน * (อย่างน้อย 8 ตัวอักษร)</label>
+        <input class="field-input" id="user-password" type="password" required minlength="8" maxlength="72" autocomplete="new-password" />
+      </div>
+      <div>
+        <label class="field-label">สิทธิ์</label>
+        <select class="field-input" id="user-role">
+          <option value="sales">sales — แก้ไขได้เฉพาะของตัวเอง ลบไม่ได้</option>
+          <option value="admin">admin — แก้ไขได้ทุกอย่าง ลบไม่ได้</option>
+        </select>
+      </div>
+      <div class="sm:col-span-2 flex justify-end">
+        <button type="submit" class="btn-primary" id="user-submit">สร้างผู้ใช้</button>
+      </div>
+    </form>
+    <div id="users-list" class="space-y-3"></div>
+  </div>
 </main>
 
 <!-- MODAL: Lead -->
@@ -197,7 +234,7 @@ export const prerender = false;
         <button type="button" id="lead-delete-btn" onclick="deleteLead()" class="btn-danger hidden">ลบลีดนี้</button>
         <div class="flex gap-2 ml-auto">
           <button type="button" onclick="closeLeadModal()" class="btn-secondary">ยกเลิก</button>
-          <button type="submit" class="btn-primary">บันทึก</button>
+          <button type="submit" class="btn-primary" id="lead-submit-btn">บันทึก</button>
         </div>
       </div>
     </form>
@@ -325,11 +362,21 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// root is an admin who can also delete and manage users.
 function isAdmin() {
-  return me?.role === 'admin';
+  return me?.role === 'admin' || me?.role === 'root';
 }
 
-// Only admins pick an owner; for sales the database defaults the owner to the caller.
+function isRoot() {
+  return me?.role === 'root';
+}
+
+// Everyone sees every row, but sales may only change their own (the database enforces this too).
+function canEdit(row) {
+  return isAdmin() || row.owner_id === me?.id;
+}
+
+// Only admins/root pick an owner; for sales the database defaults the owner to the caller.
 function ownerField(id) {
   return isAdmin() ? { owner_id: document.getElementById(id).value } : {};
 }
@@ -344,7 +391,10 @@ async function api(path, options = {}) {
     window.location.href = '/login';
     throw new Error('Session expired');
   }
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `API error ${res.status}`);
+  }
   return res.json();
 }
 
@@ -354,6 +404,7 @@ function setupOwnerPickers() {
   const options = profiles.map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.id)}</option>`).join('');
   document.querySelectorAll('[data-owner-select]').forEach(el => { el.innerHTML = options; el.value = me.id; });
   document.querySelectorAll('[data-admin-only]').forEach(el => el.classList.toggle('hidden', !isAdmin()));
+  document.querySelectorAll('[data-root-only]').forEach(el => el.classList.toggle('hidden', !isRoot()));
 }
 
 // ── Data loading ───────────────────────────────────────────────────────────
@@ -381,6 +432,7 @@ function showView(view) {
   document.getElementById('view-' + view).classList.remove('hidden');
   document.getElementById('nav-' + view).classList.add('active');
   renderAll();
+  if (view === 'users') loadUsers();
 }
 
 function renderAll() {
@@ -447,7 +499,7 @@ function renderPipeline() {
 }
 
 function renderLeadCard(l) {
-  return `<div class="lead-card" draggable="true"
+  return `<div class="lead-card" draggable="${canEdit(l)}"
     data-id="${esc(l.id)}"
     ondragstart="onDragStart(event, '${esc(l.id)}')"
     ondragend="onDragEnd(event)"
@@ -534,9 +586,9 @@ function renderRenewals() {
           </div>
           <div class="flex items-center gap-2">
             ${urgencyBadge(days)}
-            <button onclick="deleteRenewal('${esc(r.id)}')" class="text-ric-gray hover:text-ric-red ml-2" title="ลบ">
+            ${isRoot() ? `<button onclick="deleteRenewal('${esc(r.id)}')" class="text-ric-gray hover:text-ric-red ml-2" title="ลบ">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            </button>` : ''}
           </div>
         </div>`;
       }).join('')
@@ -568,6 +620,7 @@ function renderActivities() {
 function openLeadModal(id = null) {
   const modal = document.getElementById('modal-lead');
   const deleteBtn = document.getElementById('lead-delete-btn');
+  let editable = true;
 
   if (id) {
     const lead = leads.find(l => l.id === id);
@@ -583,7 +636,9 @@ function openLeadModal(id = null) {
     document.getElementById('lead-value').value = lead.value || '';
     document.getElementById('lead-owner').value = lead.owner_id;
     document.getElementById('lead-notes').value = lead.notes || '';
-    deleteBtn.classList.remove('hidden');
+    deleteBtn.classList.toggle('hidden', !isRoot());
+    editable = canEdit(lead);
+    if (!editable) document.getElementById('lead-modal-title').textContent = 'ดูลีด (แก้ไขได้เฉพาะเจ้าของ)';
   } else {
     document.getElementById('lead-modal-title').textContent = 'เพิ่มลีดใหม่';
     document.getElementById('lead-form').reset();
@@ -591,6 +646,10 @@ function openLeadModal(id = null) {
     document.getElementById('lead-owner').value = me.id;
     deleteBtn.classList.add('hidden');
   }
+
+  document.querySelectorAll('#lead-form input:not([type=hidden]), #lead-form select, #lead-form textarea')
+    .forEach(el => { el.disabled = !editable; });
+  document.getElementById('lead-submit-btn').classList.toggle('hidden', !editable);
 
   modal.classList.remove('hidden');
 }
@@ -715,6 +774,89 @@ async function deleteRenewal(id) {
   }
   renewals = renewals.filter(r => r.id !== id);
   renderAll();
+}
+
+// ── Users (root only) ─────────────────────────────────────────────────────
+let users = [];
+
+async function loadUsers() {
+  try {
+    users = await api('/api/users');
+    renderUsers();
+  } catch (err) {
+    document.getElementById('users-list').innerHTML =
+      `<div class="bg-white rounded-xl p-6 text-sm text-ric-gray shadow-xs border border-gray-100">โหลดรายชื่อผู้ใช้ไม่สำเร็จ: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderUsers() {
+  document.getElementById('users-list').innerHTML = users.map(u => {
+    const isSelf = u.id === me.id;
+    const locked = u.role === 'root' || isSelf; // root and your own account cannot be changed or deleted here
+    const roleControl = locked
+      ? `<span class="text-xs font-mono uppercase text-ric-gray">${esc(u.role)}</span>`
+      : `<select class="field-input !w-auto !py-1 text-xs" onchange="changeRole('${esc(u.id)}', this.value)">
+           <option value="sales" ${u.role === 'sales' ? 'selected' : ''}>sales</option>
+           <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+         </select>`;
+    const deleteBtn = locked ? '' : `<button onclick="deleteUser('${esc(u.id)}')" class="text-ric-gray hover:text-ric-red" title="ลบผู้ใช้">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>`;
+    return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center gap-4">
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate">${esc(u.full_name || '—')}${isSelf ? ' <span class="text-xs text-ric-gray">(คุณ)</span>' : ''}</p>
+        <p class="text-xs text-ric-gray mt-0.5 font-mono truncate">${esc(u.email)}</p>
+      </div>
+      <div class="flex items-center gap-3">${roleControl}${deleteBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+async function createUser(e) {
+  e.preventDefault();
+  const button = document.getElementById('user-submit');
+  button.disabled = true;
+  try {
+    await api('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: document.getElementById('user-email').value,
+        full_name: document.getElementById('user-name').value,
+        password: document.getElementById('user-password').value,
+        role: document.getElementById('user-role').value,
+      }),
+    });
+    document.getElementById('user-form').reset();
+    await loadUsers();
+    profiles = (await api('/api/me')).profiles; // keep the owner pickers in sync
+    setupOwnerPickers();
+  } catch (err) {
+    alert('สร้างผู้ใช้ไม่สำเร็จ: ' + err.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function changeRole(id, role) {
+  try {
+    await api(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ role }) });
+  } catch (err) {
+    alert('เปลี่ยนสิทธิ์ไม่สำเร็จ: ' + err.message);
+  }
+  await loadUsers();
+}
+
+async function deleteUser(id) {
+  const u = users.find(x => x.id === id);
+  if (!u || !confirm(`ลบผู้ใช้ ${u.email} ใช่ไหม?\nข้อมูลลีด กิจกรรม และใบรับรองของเขาจะถูกโอนมาเป็นของคุณ`)) return;
+  try {
+    await api(`/api/users/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert('ลบไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  await loadAll();
+  await loadUsers();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────

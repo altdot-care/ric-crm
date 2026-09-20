@@ -1,5 +1,7 @@
 # Copy to .dev.vars for local dev (gitignored). In production use:
 #   pnpm wrangler secret put SUPABASE_PUBLISHABLE_KEY
+#   pnpm wrangler secret put SUPABASE_SECRET_KEY      (root user-management only; bypasses RLS)
 #   (SUPABASE_URL is a plain var — set it in the Cloudflare dashboard or wrangler.jsonc "vars")
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=<sb_publishable_... from Supabase → Project Settings → API Keys>
+SUPABASE_SECRET_KEY=<sb_secret_... — needed only for the root "ผู้ใช้" page>

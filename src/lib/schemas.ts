@@ -47,4 +47,17 @@ export const loginInput = z.object({
   password: z.string().min(1).max(200),
 });
 
+// Root accounts are never created or granted from the app, so only these two roles are accepted.
+const assignableRole = z.enum(['admin', 'sales']);
+
+export const userCreate = z.object({
+  email: z.email().max(200),
+  full_name: text(200).min(1),
+  // bcrypt only uses the first 72 bytes, so longer passwords would be silently truncated.
+  password: z.string().min(8).max(72),
+  role: assignableRole,
+});
+
+export const userRoleUpdate = z.object({ role: assignableRole });
+
 export const uuidParam = z.uuid();

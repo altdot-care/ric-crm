@@ -16,6 +16,8 @@ export default defineConfig({
       // 'secret' = read at runtime from the Worker env; 'public' would be inlined at build time (baking in .dev.vars' localhost URL).
       SUPABASE_URL: envField.string({ context: 'server', access: 'secret' }),
       SUPABASE_PUBLISHABLE_KEY: envField.string({ context: 'server', access: 'secret' }),
+      // Service-role key: bypasses RLS. Only src/lib/supabase-admin.ts may read it, and only root-only routes may call that.
+      SUPABASE_SECRET_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
 });
