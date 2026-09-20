@@ -12,5 +12,14 @@
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	"routes": [
+		{
+			"pattern": "crm.ricroyal.co.th",
+			"zone_name": "ricroyal.co.th",
+			"custom_domain": true,
+			"enabled": true,
+			"previews_enabled": false
+		}
+	]
 }
