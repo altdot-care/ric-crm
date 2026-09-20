@@ -1,8 +1,16 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ric-crm",
-  "main": "@astrojs/cloudflare/entrypoints/server",
-  "compatibility_date": "2026-09-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "ric-crm",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"compatibility_date": "2026-09-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// Production Supabase project. Local dev overrides this via .dev.vars; the publishable key is a Worker secret.
+	"vars": {
+		"SUPABASE_URL": "https://ibrhvicehxrbbnxgrblw.supabase.co"
+	},
+	"observability": {
+		"enabled": true
+	}
 }

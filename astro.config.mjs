@@ -5,13 +5,16 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   output: 'server',
+  session: false, // auth lives in Supabase's cookie; without this the adapter adds a SESSION KV binding
+
   adapter: cloudflare({ imageService: 'passthrough' }), // no images used → skip the IMAGES binding
   vite: {
     plugins: [tailwindcss()],
   },
   env: {
     schema: {
-      SUPABASE_URL: envField.string({ context: 'server', access: 'public' }),
+      // 'secret' = read at runtime from the Worker env; 'public' would be inlined at build time (baking in .dev.vars' localhost URL).
+      SUPABASE_URL: envField.string({ context: 'server', access: 'secret' }),
       SUPABASE_PUBLISHABLE_KEY: envField.string({ context: 'server', access: 'secret' }),
     },
   },
