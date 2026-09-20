@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-ric-red: #B5121B;
+    --color-ric-red-dark: #6C100F;
+    --color-ric-gray: #8A8A8A;
+    --color-ric-black: #111111;
+    --color-sidebar: #1D1819;
+  }
+
+  html {
+    @apply font-sans;
+    color: var(--color-ric-black);
+  }
+}
+
+@layer components {
+  /* Pipeline stage columns */
+  .pipeline-col {
+    @apply flex flex-col gap-2 min-w-[220px] w-full;
+  }
+
+  .pipeline-col-header {
+    @apply text-xs font-semibold uppercase tracking-widest text-ric-gray mb-2 px-1;
+  }
+
+  .lead-card {
+    @apply bg-white rounded-lg p-3 shadow-sm border border-gray-100 cursor-grab active:cursor-grabbing;
+    @apply hover:shadow-md transition-shadow;
+  }
+
+  .lead-card.dragging {
+    @apply opacity-50 ring-2 ring-ric-red;
+  }
+
+  .drop-zone.drag-over {
+    @apply bg-red-50 ring-2 ring-ric-red ring-dashed;
+  }
+
+  /* Renewal urgency badges */
+  .badge-urgent {
+    @apply bg-red-100 text-ric-red text-xs font-mono px-2 py-0.5 rounded;
+  }
+  .badge-warning {
+    @apply bg-amber-100 text-amber-700 text-xs font-mono px-2 py-0.5 rounded;
+  }
+  .badge-ok {
+    @apply bg-green-100 text-green-700 text-xs font-mono px-2 py-0.5 rounded;
+  }
+
+  /* Modal overlay */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4;
+  }
+
+  .modal-box {
+    @apply bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Form inputs */
+  .field-label {
+    @apply block text-xs font-medium text-ric-gray uppercase tracking-wider mb-1;
+  }
+
+  .field-input {
+    @apply w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ric-red focus:border-transparent;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply bg-ric-red text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-ric-red-dark transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-ric-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-red-50 text-ric-red px-3 py-1.5 rounded text-xs font-medium hover:bg-red-100 transition-colors;
+  }
+
+  /* Sidebar nav items */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer;
+    @apply text-white/60 hover:text-white hover:bg-ric-sidebar-hover;
+  }
+
+  .nav-item.active {
+    @apply text-white bg-ric-red/20 border-l-2 border-ric-red;
+  }
+}

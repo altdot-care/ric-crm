@@ -1,0 +1,9 @@
+name = "crm-ric"
+compatibility_date = "2024-10-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "crm-ric-db"
+database_id = "YOUR_D1_DATABASE_ID"
