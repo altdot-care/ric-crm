@@ -1,50 +1,34 @@
 import type { APIRoute } from 'astro';
+import { json, fail, parseBody, dbError } from '@/lib/api';
+import { leadUpdate, uuidParam } from '@/lib/schemas';
+
+export const prerender = false;
 
 export const PUT: APIRoute = async ({ locals, request, params }) => {
-  const db = locals.DB;
-  const id = params.id!;
-  const body = await request.json() as any;
-  const now = Date.now();
+  const id = uuidParam.safeParse(params.id);
+  if (!id.success) return fail('Invalid id', 400);
 
-  await db.prepare(`
-    UPDATE leads SET
-      company = COALESCE(?, company),
-      contact = COALESCE(?, contact),
-      phone = COALESCE(?, phone),
-      email = COALESCE(?, email),
-      cert = COALESCE(?, cert),
-      stage = COALESCE(?, stage),
-      value = COALESCE(?, value),
-      assigned = COALESCE(?, assigned),
-      notes = COALESCE(?, notes),
-      updated_at = ?
-    WHERE id = ?
-  `).bind(
-    body.company ?? null,
-    body.contact ?? null,
-    body.phone ?? null,
-    body.email ?? null,
-    body.cert ?? null,
-    body.stage ?? null,
-    body.value ?? null,
-    body.assigned ?? null,
-    body.notes ?? null,
-    now,
-    id,
-  ).run();
+  const body = await parseBody(request, leadUpdate);
+  if (body instanceof Response) return body;
+  if (Object.keys(body).length === 0) return fail('Nothing to update', 400);
 
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  // RLS filters rows the user doesn't own, so "no row" means not found or not allowed.
+  const { data, error } = await locals.supabase
+    .from('leads')
+    .update(body)
+    .eq('id', id.data)
+    .select('id');
+  if (error) return dbError(error);
+  if (data.length === 0) return fail('Not found', 404);
+  return json({ ok: true });
 };
 
 export const DELETE: APIRoute = async ({ locals, params }) => {
-  const db = locals.DB;
-  const id = params.id!;
+  const id = uuidParam.safeParse(params.id);
+  if (!id.success) return fail('Invalid id', 400);
 
-  await db.prepare('DELETE FROM leads WHERE id = ?').bind(id).run();
-
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const { data, error } = await locals.supabase.from('leads').delete().eq('id', id.data).select('id');
+  if (error) return dbError(error);
+  if (data.length === 0) return fail('Not found', 404);
+  return json({ ok: true });
 };

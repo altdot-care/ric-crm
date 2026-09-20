@@ -1,19 +1,14 @@
 ---
-import '../styles/global.css';
+import Layout from '../layouts/Layout.astro';
+
+export const prerender = false;
 ---
 
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RIC Sales CRM</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23B5121B'/><text y='.9em' font-size='72' x='50%' text-anchor='middle'>R</text></svg>" />
-</head>
-<body class="bg-ric-gray-light font-sans text-ric-black min-h-screen flex">
+<Layout>
+<div class="flex min-h-screen">
 
 <!-- SIDEBAR -->
-<aside id="sidebar" class="w-60 bg-ric-sidebar flex-shrink-0 flex flex-col h-screen sticky top-0 overflow-hidden">
+<aside id="sidebar" class="w-60 bg-ric-sidebar shrink-0 flex flex-col h-screen sticky top-0 overflow-hidden">
   <!-- Logo -->
   <div class="px-5 py-5 border-b border-white/5">
     <div class="flex items-center gap-3">
@@ -28,25 +23,32 @@ import '../styles/global.css';
   <!-- Nav -->
   <nav class="flex-1 px-3 py-4 space-y-1">
     <button onclick="showView('dashboard')" class="nav-item active w-full text-left" id="nav-dashboard">
-      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"/></svg>
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"/></svg>
       ภาพรวม
     </button>
     <button onclick="showView('pipeline')" class="nav-item w-full text-left" id="nav-pipeline">
-      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
       Pipeline
     </button>
     <button onclick="showView('renewals')" class="nav-item w-full text-left" id="nav-renewals">
-      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       ต่ออายุใบรับรอง
     </button>
     <button onclick="showView('activities')" class="nav-item w-full text-left" id="nav-activities">
-      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       กิจกรรม
     </button>
   </nav>
 
   <!-- Bottom -->
-  <div class="px-5 py-4 border-t border-white/5">
+  <div class="px-5 py-4 border-t border-white/5 space-y-3">
+    <div>
+      <p class="text-white text-xs font-medium truncate" id="me-name">—</p>
+      <p class="text-white/40 text-[10px] uppercase tracking-wider" id="me-role"></p>
+    </div>
+    <form method="post" action="/api/auth/logout">
+      <button type="submit" class="text-white/60 hover:text-white text-xs">ออกจากระบบ</button>
+    </form>
     <p class="text-white/25 text-[10px] font-mono">Royal International Certification</p>
   </div>
 </aside>
@@ -61,26 +63,26 @@ import '../styles/global.css';
     </div>
     <!-- KPI Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <p class="text-xs text-ric-gray uppercase tracking-wider">ลีดทั้งหมด</p>
         <p class="text-3xl font-bold text-ric-black mt-1" id="kpi-total">—</p>
       </div>
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <p class="text-xs text-ric-gray uppercase tracking-wider">ปิดดีลแล้ว</p>
         <p class="text-3xl font-bold text-ric-red mt-1" id="kpi-won">—</p>
       </div>
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <p class="text-xs text-ric-gray uppercase tracking-wider">มูลค่ารวม</p>
         <p class="text-3xl font-bold text-ric-black mt-1" id="kpi-value">—</p>
       </div>
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <p class="text-xs text-ric-gray uppercase tracking-wider">ต่ออายุใน 30 วัน</p>
         <p class="text-3xl font-bold text-amber-600 mt-1" id="kpi-renewals">—</p>
       </div>
     </div>
 
     <!-- Recent Leads -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="bg-white rounded-xl shadow-xs border border-gray-100">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <h2 class="font-semibold text-sm">ลีดล่าสุด</h2>
         <button onclick="showView('pipeline')" class="text-xs text-ric-red hover:underline">ดู Pipeline →</button>
@@ -182,9 +184,9 @@ import '../styles/global.css';
           <label class="field-label">มูลค่า (บาท)</label>
           <input class="field-input" id="lead-value" type="number" placeholder="0" min="0" />
         </div>
-        <div>
+        <div data-admin-only class="hidden">
           <label class="field-label">ผู้รับผิดชอบ</label>
-          <input class="field-input" id="lead-assigned" placeholder="ชื่อเซลส์" />
+          <select class="field-input" data-owner-select id="lead-owner"></select>
         </div>
         <div class="col-span-2">
           <label class="field-label">หมายเหตุ</label>
@@ -238,9 +240,9 @@ import '../styles/global.css';
           <label class="field-label">นัดติดตาม</label>
           <input class="field-input" id="act-followup" type="date" />
         </div>
-        <div class="col-span-2">
+        <div class="col-span-2 hidden" data-admin-only>
           <label class="field-label">บันทึกโดย</label>
-          <input class="field-input" id="act-by" placeholder="ชื่อเซลส์" />
+          <select class="field-input" data-owner-select id="act-owner"></select>
         </div>
       </div>
       <div class="flex justify-end gap-2 pt-2">
@@ -283,9 +285,9 @@ import '../styles/global.css';
           <label class="field-label">วันหมดอายุ *</label>
           <input class="field-input" id="ren-expiry" type="date" required />
         </div>
-        <div class="col-span-2">
+        <div class="col-span-2 hidden" data-admin-only>
           <label class="field-label">เจ้าหน้าที่รับผิดชอบ</label>
-          <input class="field-input" id="ren-owner" placeholder="ชื่อเซลส์" />
+          <select class="field-input" data-owner-select id="ren-owner"></select>
         </div>
       </div>
       <div class="flex justify-end gap-2 pt-2">
@@ -296,12 +298,14 @@ import '../styles/global.css';
   </div>
 </div>
 
-<script>
+<script is:inline>
 // ── State ──────────────────────────────────────────────────────────────────
 let leads = [];
 let activities = [];
 let renewals = [];
 let currentView = 'dashboard';
+let me = null;
+let profiles = [];
 
 // ── Stage config ──────────────────────────────────────────────────────────
 const STAGES = [
@@ -315,23 +319,54 @@ const STAGES = [
 
 const ACT_TYPE_LABEL = { call: '📞 โทรศัพท์', email: '✉️ อีเมล', meeting: '🤝 ประชุม', note: '📝 บันทึก' };
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+// All API data is user-supplied and rendered via innerHTML, so escape every value.
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function isAdmin() {
+  return me?.role === 'admin';
+}
+
+// Only admins pick an owner; for sales the database defaults the owner to the caller.
+function ownerField(id) {
+  return isAdmin() ? { owner_id: document.getElementById(id).value } : {};
+}
+
 // ── API helpers ────────────────────────────────────────────────────────────
 async function api(path, options = {}) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    throw new Error('Session expired');
+  }
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
+function setupOwnerPickers() {
+  document.getElementById('me-name').textContent = me.full_name || '—';
+  document.getElementById('me-role').textContent = me.role;
+  const options = profiles.map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.id)}</option>`).join('');
+  document.querySelectorAll('[data-owner-select]').forEach(el => { el.innerHTML = options; el.value = me.id; });
+  document.querySelectorAll('[data-admin-only]').forEach(el => el.classList.toggle('hidden', !isAdmin()));
+}
+
 // ── Data loading ───────────────────────────────────────────────────────────
 async function loadAll() {
-  const [l, a, r] = await Promise.all([
+  const [l, a, r, who] = await Promise.all([
     api('/api/leads'),
     api('/api/activities'),
     api('/api/renewals'),
+    api('/api/me'),
   ]);
+  me = who.me;
+  profiles = who.profiles;
+  setupOwnerPickers();
   leads = l;
   activities = a;
   renewals = r;
@@ -378,10 +413,10 @@ function renderDashboard() {
   document.getElementById('dash-recent-leads').innerHTML = recent.length
     ? recent.map(l => {
         const stage = STAGES.find(s => s.id === l.stage) || STAGES[0];
-        return `<div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 cursor-pointer" onclick="openLeadModal('${l.id}')">
+        return `<div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 cursor-pointer" onclick="openLeadModal('${esc(l.id)}')">
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">${l.company}</p>
-            <p class="text-xs text-ric-gray">${l.cert || '—'} · ${l.contact || '—'}</p>
+            <p class="text-sm font-medium truncate">${esc(l.company)}</p>
+            <p class="text-xs text-ric-gray">${esc(l.cert) || '—'} · ${esc(l.contact) || '—'}</p>
           </div>
           <span class="text-xs px-2 py-0.5 rounded-full ${stage.color}">${stage.label}</span>
           <span class="text-xs font-mono text-ric-gray">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
@@ -413,17 +448,17 @@ function renderPipeline() {
 
 function renderLeadCard(l) {
   return `<div class="lead-card" draggable="true"
-    data-id="${l.id}"
-    ondragstart="onDragStart(event, '${l.id}')"
+    data-id="${esc(l.id)}"
+    ondragstart="onDragStart(event, '${esc(l.id)}')"
     ondragend="onDragEnd(event)"
-    onclick="openLeadModal('${l.id}')">
-    <p class="font-medium text-sm leading-tight mb-1">${l.company}</p>
-    <p class="text-xs text-ric-gray mb-2">${l.cert || '—'}</p>
+    onclick="openLeadModal('${esc(l.id)}')">
+    <p class="font-medium text-sm leading-tight mb-1">${esc(l.company)}</p>
+    <p class="text-xs text-ric-gray mb-2">${esc(l.cert) || '—'}</p>
     <div class="flex items-center justify-between">
-      <span class="text-xs text-ric-gray">${l.contact || '—'}</span>
+      <span class="text-xs text-ric-gray">${esc(l.contact) || '—'}</span>
       <span class="text-xs font-mono font-medium">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
     </div>
-    ${l.assigned ? `<p class="text-[10px] text-ric-gray/60 mt-1.5">👤 ${l.assigned}</p>` : ''}
+    ${l.owner?.full_name ? `<p class="text-[10px] text-ric-gray/60 mt-1.5">👤 ${esc(l.owner.full_name)}</p>` : ''}
   </div>`;
 }
 
@@ -457,12 +492,19 @@ async function onDrop(e) {
   const lead = leads.find(l => l.id === draggingId);
   if (!lead || lead.stage === targetStage) return;
 
+  const previousStage = lead.stage;
   lead.stage = targetStage;
-  await api(`/api/leads/${draggingId}`, {
-    method: 'PUT',
-    body: JSON.stringify({ stage: targetStage }),
-  });
   renderPipeline();
+  try {
+    await api(`/api/leads/${draggingId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ stage: targetStage }),
+    });
+  } catch (err) {
+    lead.stage = previousStage;
+    renderPipeline();
+    alert('ย้าย stage ไม่สำเร็จ: ' + err.message);
+  }
 }
 
 // ── Renewals ──────────────────────────────────────────────────────────────
@@ -484,42 +526,42 @@ function renderRenewals() {
   document.getElementById('renewals-list').innerHTML = sorted.length
     ? sorted.map(r => {
         const days = daysUntil(r.expiry);
-        return `<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
+        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center gap-4">
           <div class="flex-1">
-            <p class="font-medium text-sm">${r.company}</p>
-            <p class="text-xs text-ric-gray mt-0.5 font-mono">${r.cert} · หมดอายุ ${r.expiry}</p>
-            ${r.owner ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${r.owner}</p>` : ''}
+            <p class="font-medium text-sm">${esc(r.company)}</p>
+            <p class="text-xs text-ric-gray mt-0.5 font-mono">${esc(r.cert)} · หมดอายุ ${esc(r.expiry)}</p>
+            ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}
           </div>
           <div class="flex items-center gap-2">
             ${urgencyBadge(days)}
-            <button onclick="deleteRenewal('${r.id}')" class="text-ric-gray hover:text-ric-red ml-2" title="ลบ">
+            <button onclick="deleteRenewal('${esc(r.id)}')" class="text-ric-gray hover:text-ric-red ml-2" title="ลบ">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
         </div>`;
       }).join('')
-    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-sm border border-gray-100">ยังไม่มีใบรับรอง · <button onclick="openRenewalModal()" class="text-ric-red hover:underline">เพิ่มใบรับรอง</button></div>';
+    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีใบรับรอง · <button onclick="openRenewalModal()" class="text-ric-red hover:underline">เพิ่มใบรับรอง</button></div>';
 }
 
 // ── Activities ────────────────────────────────────────────────────────────
 function renderActivities() {
-  const sorted = [...activities].sort((a, b) => b.created_at - a.created_at);
+  const sorted = [...activities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   document.getElementById('activities-list').innerHTML = sorted.length
-    ? sorted.map(a => `<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    ? sorted.map(a => `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">${ACT_TYPE_LABEL[a.type] || a.type}</span>
-              <span class="text-xs font-mono text-ric-gray">${a.date}</span>
-              ${a.company ? `<span class="text-xs text-ric-gray">· ${a.company}</span>` : ''}
+              <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-sm">${esc(ACT_TYPE_LABEL[a.type] || a.type)}</span>
+              <span class="text-xs font-mono text-ric-gray">${esc(a.date)}</span>
+              ${a.company ? `<span class="text-xs text-ric-gray">· ${esc(a.company)}</span>` : ''}
             </div>
-            <p class="text-sm">${a.description}</p>
-            ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${a.followup}</p>` : ''}
-            ${a.by_user ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${a.by_user}</p>` : ''}
+            <p class="text-sm">${esc(a.description)}</p>
+            ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
+            ${a.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(a.owner.full_name)}</p>` : ''}
           </div>
         </div>
       </div>`).join('')
-    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-sm border border-gray-100">ยังไม่มีกิจกรรม · <button onclick="openActivityModal()" class="text-ric-red hover:underline">บันทึกกิจกรรมแรก</button></div>';
+    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีกิจกรรม · <button onclick="openActivityModal()" class="text-ric-red hover:underline">บันทึกกิจกรรมแรก</button></div>';
 }
 
 // ── Lead Modal ────────────────────────────────────────────────────────────
@@ -539,13 +581,14 @@ function openLeadModal(id = null) {
     document.getElementById('lead-cert').value = lead.cert || '';
     document.getElementById('lead-stage').value = lead.stage || 'new';
     document.getElementById('lead-value').value = lead.value || '';
-    document.getElementById('lead-assigned').value = lead.assigned || '';
+    document.getElementById('lead-owner').value = lead.owner_id;
     document.getElementById('lead-notes').value = lead.notes || '';
     deleteBtn.classList.remove('hidden');
   } else {
     document.getElementById('lead-modal-title').textContent = 'เพิ่มลีดใหม่';
     document.getElementById('lead-form').reset();
     document.getElementById('lead-id').value = '';
+    document.getElementById('lead-owner').value = me.id;
     deleteBtn.classList.add('hidden');
   }
 
@@ -567,19 +610,20 @@ async function saveLead(e) {
     cert: document.getElementById('lead-cert').value,
     stage: document.getElementById('lead-stage').value,
     value: parseInt(document.getElementById('lead-value').value) || 0,
-    assigned: document.getElementById('lead-assigned').value,
     notes: document.getElementById('lead-notes').value,
+    ...ownerField('lead-owner'),
   };
 
-  if (id) {
-    await api(`/api/leads/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-    const idx = leads.findIndex(l => l.id === id);
-    if (idx >= 0) leads[idx] = { ...leads[idx], ...data };
-  } else {
-    const newId = `lead_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-    data.id = newId;
-    await api('/api/leads', { method: 'POST', body: JSON.stringify(data) });
-    leads.unshift({ id: newId, ...data, created_at: Date.now(), updated_at: Date.now() });
+  try {
+    if (id) {
+      await api(`/api/leads/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    } else {
+      await api('/api/leads', { method: 'POST', body: JSON.stringify(data) });
+    }
+    leads = await api('/api/leads');
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
   }
 
   closeLeadModal();
@@ -589,7 +633,12 @@ async function saveLead(e) {
 async function deleteLead() {
   const id = document.getElementById('lead-id').value;
   if (!id || !confirm('ลบลีดนี้ใช่ไหม?')) return;
-  await api(`/api/leads/${id}`, { method: 'DELETE' });
+  try {
+    await api(`/api/leads/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert('ลบไม่สำเร็จ: ' + err.message);
+    return;
+  }
   leads = leads.filter(l => l.id !== id);
   closeLeadModal();
   renderAll();
@@ -613,14 +662,17 @@ async function saveActivity(e) {
     company: document.getElementById('act-company').value,
     description: document.getElementById('act-description').value,
     followup: document.getElementById('act-followup').value,
-    by_user: document.getElementById('act-by').value,
+    ...ownerField('act-owner'),
   };
-  const newId = `act_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-  data.id = newId;
-  await api('/api/activities', { method: 'POST', body: JSON.stringify(data) });
-  activities.unshift({ id: newId, ...data, created_at: Date.now() });
+  try {
+    activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify(data) }));
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
+  }
   closeActivityModal();
   document.getElementById('modal-activity').querySelector('form').reset();
+  document.getElementById('act-owner').value = me.id;
   renderAll();
 }
 
@@ -639,20 +691,28 @@ async function saveRenewal(e) {
     company: document.getElementById('ren-company').value,
     cert: document.getElementById('ren-cert').value,
     expiry: document.getElementById('ren-expiry').value,
-    owner: document.getElementById('ren-owner').value,
+    ...ownerField('ren-owner'),
   };
-  const newId = `ren_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-  data.id = newId;
-  await api('/api/renewals', { method: 'POST', body: JSON.stringify(data) });
-  renewals.push({ id: newId, ...data, created_at: Date.now() });
+  try {
+    renewals.push(await api('/api/renewals', { method: 'POST', body: JSON.stringify(data) }));
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
+  }
   closeRenewalModal();
   document.getElementById('modal-renewal').querySelector('form').reset();
+  document.getElementById('ren-owner').value = me.id;
   renderAll();
 }
 
 async function deleteRenewal(id) {
   if (!confirm('ลบใบรับรองนี้ใช่ไหม?')) return;
-  await api(`/api/renewals/${id}`, { method: 'DELETE' });
+  try {
+    await api(`/api/renewals/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert('ลบไม่สำเร็จ: ' + err.message);
+    return;
+  }
   renewals = renewals.filter(r => r.id !== id);
   renderAll();
 }
@@ -666,11 +726,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('Failed to load data:', err);
     document.getElementById('view-dashboard').innerHTML = `
       <div class="p-8 text-center">
-        <p class="text-ric-gray text-sm">ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบ D1 database</p>
-        <p class="text-xs text-ric-gray/60 font-mono mt-1">${err.message}</p>
+        <p class="text-ric-gray text-sm">ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง</p>
+        <p class="text-xs text-ric-gray/60 font-mono mt-1">${esc(err.message)}</p>
       </div>`;
   }
 });
 </script>
-</body>
-</html>
+</div>
+</Layout>

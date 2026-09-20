@@ -1,0 +1,4 @@
+# Dependency build scripts pnpm is allowed to run (blocked by default).
+allowBuilds:
+  esbuild: true
+  workerd: true

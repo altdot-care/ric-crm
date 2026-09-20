@@ -1,10 +1,8 @@
 {
   "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"],
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": ["@cloudflare/workers-types/2023-07-01", "astro/client"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

@@ -1,0 +1,40 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+export const prerender = false;
+
+if (Astro.locals.user) return Astro.redirect('/');
+const hasError = Astro.url.searchParams.has('error');
+---
+
+<Layout title="เข้าสู่ระบบ · RIC Sales CRM">
+  <main class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white rounded-xl shadow-xs border border-gray-100 p-6">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-9 h-9 bg-ric-red rounded-lg flex items-center justify-center font-bold text-white text-lg">R</div>
+        <div>
+          <p class="font-semibold text-sm leading-tight">RIC Sales CRM</p>
+          <p class="text-ric-gray text-[10px] uppercase tracking-wider">Royal International Certification</p>
+        </div>
+      </div>
+
+      {hasError && (
+        <p class="mb-4 rounded-md bg-red-50 text-ric-red text-sm px-3 py-2" role="alert">
+          อีเมลหรือรหัสผ่านไม่ถูกต้อง
+        </p>
+      )}
+
+      <form method="post" action="/api/auth/login" class="space-y-4">
+        <div>
+          <label class="field-label" for="email">อีเมล</label>
+          <input class="field-input" id="email" name="email" type="email" autocomplete="username" required autofocus />
+        </div>
+        <div>
+          <label class="field-label" for="password">รหัสผ่าน</label>
+          <input class="field-input" id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn-primary w-full">เข้าสู่ระบบ</button>
+      </form>
+    </div>
+  </main>
+</Layout>

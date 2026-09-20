@@ -1,21 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-ric-red: #b5121b;
+  --color-ric-red-dark: #6c100f;
+  --color-ric-gray: #8a8a8a;
+  --color-ric-gray-light: #f5f5f5;
+  --color-ric-black: #111111;
+  --color-ric-sidebar: #1d1819;
+  --color-ric-sidebar-hover: #2d2122;
+
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
 
 @layer base {
-  :root {
-    --color-ric-red: #B5121B;
-    --color-ric-red-dark: #6C100F;
-    --color-ric-gray: #8A8A8A;
-    --color-ric-black: #111111;
-    --color-sidebar: #1D1819;
+  html {
+    color: var(--color-ric-black);
   }
 
-  html {
-    @apply font-sans;
-    color: var(--color-ric-black);
+  /* Tailwind v4 no longer sets a pointer cursor on buttons. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
   }
 }
 
@@ -30,7 +38,7 @@
   }
 
   .lead-card {
-    @apply bg-white rounded-lg p-3 shadow-sm border border-gray-100 cursor-grab active:cursor-grabbing;
+    @apply bg-white rounded-lg p-3 shadow-xs border border-gray-100 cursor-grab active:cursor-grabbing;
     @apply hover:shadow-md transition-shadow;
   }
 
@@ -39,18 +47,18 @@
   }
 
   .drop-zone.drag-over {
-    @apply bg-red-50 ring-2 ring-ric-red ring-dashed;
+    @apply bg-red-50 ring-2 ring-ric-red outline-2 outline-dashed outline-ric-red;
   }
 
   /* Renewal urgency badges */
   .badge-urgent {
-    @apply bg-red-100 text-ric-red text-xs font-mono px-2 py-0.5 rounded;
+    @apply bg-red-100 text-ric-red text-xs font-mono px-2 py-0.5 rounded-sm;
   }
   .badge-warning {
-    @apply bg-amber-100 text-amber-700 text-xs font-mono px-2 py-0.5 rounded;
+    @apply bg-amber-100 text-amber-700 text-xs font-mono px-2 py-0.5 rounded-sm;
   }
   .badge-ok {
-    @apply bg-green-100 text-green-700 text-xs font-mono px-2 py-0.5 rounded;
+    @apply bg-green-100 text-green-700 text-xs font-mono px-2 py-0.5 rounded-sm;
   }
 
   /* Modal overlay */
@@ -68,7 +76,7 @@
   }
 
   .field-input {
-    @apply w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ric-red focus:border-transparent;
+    @apply w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-ric-red focus:border-transparent;
   }
 
   /* Buttons */
@@ -81,7 +89,7 @@
   }
 
   .btn-danger {
-    @apply bg-red-50 text-ric-red px-3 py-1.5 rounded text-xs font-medium hover:bg-red-100 transition-colors;
+    @apply bg-red-50 text-ric-red px-3 py-1.5 rounded-sm text-xs font-medium hover:bg-red-100 transition-colors;
   }
 
   /* Sidebar nav items */
