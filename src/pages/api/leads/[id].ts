@@ -13,6 +13,28 @@ export const PUT: APIRoute = async ({ locals, request, params }) => {
   if (body instanceof Response) return body;
   if (Object.keys(body).length === 0) return fail('Nothing to update', 400);
 
+  if (body.primary_contact_id) {
+    let companyId = body.company_id;
+    if (!companyId) {
+      const { data: existing, error: fetchError } = await locals.supabase
+        .from('leads')
+        .select('company_id')
+        .eq('id', id.data)
+        .maybeSingle();
+      if (fetchError) return dbError(fetchError);
+      if (!existing) return fail('Not found', 404);
+      companyId = existing.company_id;
+    }
+    const { data: contact, error: contactError } = await locals.supabase
+      .from('contacts')
+      .select('id')
+      .eq('id', body.primary_contact_id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (contactError) return dbError(contactError);
+    if (!contact) return fail('primary_contact_id does not belong to company_id', 400);
+  }
+
   // RLS filters rows the user doesn't own, so "no row" means not found or not allowed.
   const { data, error } = await locals.supabase
     .from('leads')
