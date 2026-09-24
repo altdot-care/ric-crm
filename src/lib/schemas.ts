@@ -10,51 +10,78 @@ const optionalText = (max: number) => z.union([z.null(), text(max)]).optional();
 const optionalUrl = (max: number) => z.union([z.null(), z.url().max(max)]).optional();
 
 export const leadInput = z.object({
-  company: text(200).min(1),
-  contact: text(200),
-  phone,
-  email: z.union([z.literal(''), z.email().max(200)]),
+  company_id: z.uuid(),
+  primary_contact_id: z.union([z.null(), z.uuid()]).optional(),
   cert: z.array(text(100)).max(10).default([]),
   stage: z.enum(['new', 'contacted', 'quoted', 'negotiating', 'won', 'lost']),
   value: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   notes: text(5000),
-  postcode: optionalText(50),
+  quote_link: optionalUrl(500),
+  next_action: optionalText(200),
+  next_action_due: z.union([z.null(), isoDate]).optional(),
+  owner_id: z.uuid(),
+});
+export const leadCreate = leadInput.partial({
+  primary_contact_id: true,
+  cert: true,
+  stage: true,
+  value: true,
+  notes: true,
+  quote_link: true,
+  next_action: true,
+  next_action_due: true,
+  owner_id: true,
+});
+export const leadUpdate = leadInput.partial();
+
+export const companyCreate = z.object({
+  name: text(200).min(1),
+  owner_id: z.uuid().optional(),
+});
+export const companyUpdate = companyCreate.partial();
+
+export const contactInput = z.object({
+  company_id: z.uuid(),
+  full_name: text(200).min(1),
+  position: text(100),
+  phone,
+  email: z.union([z.literal(''), z.email().max(200)]),
   gender: optionalText(50),
   occupation: optionalText(200),
+  postcode: optionalText(50),
   address1: optionalText(200),
   address2: optionalText(200),
   sub_district: optionalText(100),
   district: optionalText(100),
   province: optionalText(100),
-  quote_link: optionalUrl(500),
   status: z.number().int().min(0).max(32767).default(1),
   owner_id: z.uuid(),
 });
-export const leadCreate = leadInput.partial({
-  contact: true,
+export const contactCreate = contactInput.partial({
+  position: true,
   phone: true,
   email: true,
-  cert: true,
-  stage: true,
-  value: true,
-  notes: true,
-  postcode: true,
   gender: true,
   occupation: true,
+  postcode: true,
   address1: true,
   address2: true,
   sub_district: true,
   district: true,
   province: true,
-  quote_link: true,
   status: true,
   owner_id: true,
 });
-export const leadUpdate = leadInput.partial();
+// company_id is intentionally excluded: moving a contact between companies isn't a real use
+// case, and forbidding it via update removes the whole class of primary_contact_id ∈ company_id
+// invariant problems that an update-able company_id would reopen.
+export const contactUpdate = contactInput.omit({ company_id: true }).partial();
 
 export const activityCreate = z.object({
+  lead_id: z.uuid(),
+  // stage_change is written only by the database trigger (security definer, bypasses this
+  // schema entirely) — never accept it from a client request.
   type: z.enum(['call', 'email', 'meeting', 'note']).default('note'),
-  company: text(200).default(''),
   description: text(5000).min(1),
   date: isoDate.optional(),
   followup: z.union([isoDate, z.literal('')]).optional(),

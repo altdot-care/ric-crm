@@ -42,6 +42,10 @@ const CERT_OPTIONS = [
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       ต่ออายุใบรับรอง
     </button>
+    <button onclick="showView('companies')" class="nav-item w-full text-left" id="nav-companies">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2M5 21H3m4-14h6M7 11h6M7 15h6"/></svg>
+      บริษัท
+    </button>
     <button onclick="showView('activities')" class="nav-item w-full text-left" id="nav-activities">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       กิจกรรม
@@ -127,14 +131,46 @@ const CERT_OPTIONS = [
     <div id="renewals-list" class="space-y-3"></div>
   </div>
 
+  <!-- COMPANIES -->
+  <div id="view-companies" class="hidden p-6">
+    <h1 class="text-xl font-semibold mb-6">บริษัท</h1>
+    <form id="company-form" class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 flex items-end gap-3 mb-6" onsubmit="createCompany(event)">
+      <div class="flex-1">
+        <label class="field-label">ชื่อบริษัทใหม่</label>
+        <input class="field-input" id="company-name" required placeholder="บริษัท ... จำกัด" />
+      </div>
+      <button type="submit" class="btn-primary">เพิ่มบริษัท</button>
+    </form>
+    <div class="mb-4">
+      <input class="field-input" id="company-search" placeholder="ค้นหาบริษัท..." oninput="renderCompanies()" />
+    </div>
+    <div id="companies-list" class="space-y-3"></div>
+  </div>
+
+  <!-- COMPANY DETAIL -->
+  <div id="view-company-detail" class="hidden p-6">
+    <button onclick="closeCompanyDetail()" class="text-sm text-ric-gray hover:text-ric-black mb-4">← กลับ</button>
+    <h1 class="text-xl font-semibold mb-6" id="company-detail-name">—</h1>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-sm">ผู้ติดต่อ</h2>
+          <button onclick="openContactModal()" class="btn-primary text-xs px-3 py-1.5">+ เพิ่มผู้ติดต่อ</button>
+        </div>
+        <div id="company-contacts-list" class="space-y-2"></div>
+      </div>
+      <div>
+        <h2 class="font-semibold text-sm mb-3">ดีลของบริษัทนี้</h2>
+        <div id="company-deals-list" class="bg-white rounded-xl shadow-xs border border-gray-100 divide-y divide-gray-50"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ACTIVITIES -->
   <div id="view-activities" class="hidden p-6">
-    <div class="flex items-center justify-between mb-6">
+    <div class="mb-6">
       <h1 class="text-xl font-semibold">กิจกรรมและติดตาม</h1>
-      <button onclick="openActivityModal()" class="btn-primary flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        บันทึกกิจกรรม
-      </button>
+      <p class="text-ric-gray text-sm mt-0.5">ทุกดีล อ่านอย่างเดียว — กดแถวเพื่อเปิดดีลนั้น เพิ่มบันทึกใหม่ได้จากในดีล (แท็บ Log)</p>
     </div>
     <div id="activities-list" class="space-y-3"></div>
   </div>
@@ -182,66 +218,34 @@ const CERT_OPTIONS = [
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
+    <div class="flex border-b border-gray-100 px-5">
+      <button type="button" onclick="switchLeadTab('info')" id="lead-tab-btn-info" class="px-3 py-2.5 text-sm font-medium border-b-2 border-ric-red text-ric-red">ข้อมูล</button>
+      <button type="button" onclick="switchLeadTab('log')" id="lead-tab-btn-log" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black hidden">Log</button>
+    </div>
+    <div id="lead-tab-info">
     <form id="lead-form" class="p-5 space-y-4" onsubmit="saveLead(event)">
       <input type="hidden" id="lead-id" />
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2">
-          <label class="field-label">ชื่อบริษัท *</label>
-          <input class="field-input" id="lead-company" required placeholder="บริษัท ... จำกัด" />
-        </div>
-        <div>
-          <label class="field-label">ผู้ติดต่อ</label>
-          <input class="field-input" id="lead-contact" placeholder="ชื่อ-นามสกุล" />
-        </div>
-        <div>
-          <label class="field-label">เบอร์โทร</label>
-          <input class="field-input" id="lead-phone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)" placeholder="0812345678" />
-        </div>
-        <div>
-          <label class="field-label">อีเมล</label>
-          <input class="field-input" id="lead-email" type="email" placeholder="name@company.com" />
-        </div>
-        <div class="col-span-2 pt-2 border-t border-gray-100">
-          <p class="text-xs font-semibold text-ric-gray uppercase tracking-wider">ข้อมูลส่วนตัว/ที่อยู่ (ไม่บังคับ)</p>
-        </div>
-        <div>
-          <label class="field-label">เพศ</label>
-          <select class="field-input" id="lead-gender">
-            <option value="">ไม่ระบุ</option>
-            <option value="male">ชาย</option>
-            <option value="female">หญิง</option>
-            <option value="other">อื่นๆ</option>
+          <label class="field-label">บริษัท *</label>
+          <select class="field-input" id="lead-company-id" required onchange="onLeadCompanyChange()">
+            <option value="">-- เลือกบริษัท --</option>
           </select>
         </div>
-        <div>
-          <label class="field-label">อาชีพ</label>
-          <input class="field-input" id="lead-occupation" placeholder="อาชีพ" />
+        <div class="col-span-2 hidden" id="lead-new-company-wrap">
+          <label class="field-label">ชื่อบริษัทใหม่</label>
+          <input class="field-input" id="lead-new-company-name" placeholder="บริษัท ... จำกัด" />
         </div>
         <div>
-          <label class="field-label">รหัสไปรษณีย์</label>
-          <input class="field-input" id="lead-postcode" placeholder="10xxx" inputmode="numeric" pattern="[0-9]*" maxlength="5" oninput="onPostcodeInput()" />
-        </div>
-        <div>
-          <label class="field-label">ตำบล/แขวง</label>
-          <select class="field-input disabled:bg-gray-50 disabled:text-ric-gray" id="lead-sub-district" onchange="onSubDistrictChange()" disabled>
-            <option value="">-- กรอกรหัสไปรษณีย์ก่อน --</option>
+          <label class="field-label">ผู้ติดต่อหลัก</label>
+          <select class="field-input" id="lead-contact-id" onchange="onLeadContactChange()">
+            <option value="">-- ไม่ระบุ --</option>
           </select>
         </div>
-        <div>
-          <label class="field-label">อำเภอ/เขต</label>
-          <input class="field-input bg-gray-50" id="lead-district" readonly placeholder="อัตโนมัติจากตำบล" />
-        </div>
-        <div>
-          <label class="field-label">จังหวัด</label>
-          <input class="field-input bg-gray-50" id="lead-province" readonly placeholder="อัตโนมัติจากตำบล" />
-        </div>
-        <div class="col-span-2">
-          <label class="field-label">ที่อยู่ 1</label>
-          <input class="field-input" id="lead-address1" placeholder="บ้านเลขที่ ถนน" />
-        </div>
-        <div class="col-span-2">
-          <label class="field-label">ที่อยู่ 2</label>
-          <input class="field-input" id="lead-address2" placeholder="หมู่บ้าน/อาคาร (ถ้ามี)" />
+        <div class="hidden" id="lead-new-contact-wrap">
+          <label class="field-label">ผู้ติดต่อใหม่</label>
+          <input class="field-input mb-2" id="lead-new-contact-name" placeholder="ชื่อ-นามสกุล" />
+          <input class="field-input" id="lead-new-contact-position" placeholder="ตำแหน่ง (ไม่บังคับ)" />
         </div>
         <div class="col-span-2">
           <label class="field-label">ใบรับรองที่สนใจ (เลือกได้หลายรายการ)</label>
@@ -273,6 +277,14 @@ const CERT_OPTIONS = [
           <label class="field-label">ลิงก์ใบเสนอราคา</label>
           <input class="field-input" id="lead-quote-link" type="url" placeholder="https://..." />
         </div>
+        <div>
+          <label class="field-label">งานถัดไป</label>
+          <input class="field-input" id="lead-next-action" placeholder="เช่น ส่งใบเสนอราคา, โทรติดตาม" />
+        </div>
+        <div>
+          <label class="field-label">วันครบกำหนด</label>
+          <input class="field-input" id="lead-next-action-due" type="date" />
+        </div>
         <div data-admin-only class="hidden">
           <label class="field-label">ผู้รับผิดชอบ</label>
           <select class="field-input" data-owner-select id="lead-owner"></select>
@@ -290,53 +302,103 @@ const CERT_OPTIONS = [
         </div>
       </div>
     </form>
-  </div>
-</div>
-
-<!-- MODAL: Activity -->
-<div id="modal-activity" class="modal-overlay hidden" onclick="if(event.target===this)closeActivityModal()">
-  <div class="modal-box">
-    <div class="flex items-center justify-between p-5 border-b border-gray-100">
-      <h3 class="font-semibold">บันทึกกิจกรรม</h3>
-      <button onclick="closeActivityModal()" class="text-ric-gray hover:text-ric-black">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
     </div>
-    <form class="p-5 space-y-4" onsubmit="saveActivity(event)">
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">ประเภท</label>
-          <select class="field-input" id="act-type">
+    <div id="lead-tab-log" class="hidden p-5">
+      <div id="lead-log-list" class="space-y-3 mb-4 max-h-64 overflow-y-auto"></div>
+      <form onsubmit="saveLeadActivity(event)" class="border-t border-gray-100 pt-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <select class="field-input" id="lead-act-type">
             <option value="call">📞 โทรศัพท์</option>
             <option value="email">✉️ อีเมล</option>
             <option value="meeting">🤝 ประชุม</option>
             <option value="note">📝 บันทึก</option>
           </select>
+          <input class="field-input" id="lead-act-followup" type="date" />
+        </div>
+        <textarea class="field-input h-16 resize-none" id="lead-act-description" required placeholder="บันทึกใหม่..."></textarea>
+        <button type="submit" class="btn-primary w-full">บันทึก</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Contact -->
+<div id="modal-contact" class="modal-overlay hidden" onclick="if(event.target===this)closeContactModal()">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h3 class="font-semibold" id="contact-modal-title">เพิ่มผู้ติดต่อ</h3>
+      <button onclick="closeContactModal()" class="text-ric-gray hover:text-ric-black">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="contact-form" class="p-5 space-y-4" onsubmit="saveContact(event)">
+      <input type="hidden" id="contact-id" />
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="field-label">ชื่อ-นามสกุล *</label>
+          <input class="field-input" id="contact-full-name" required placeholder="ชื่อ-นามสกุล" />
         </div>
         <div>
-          <label class="field-label">วันที่</label>
-          <input class="field-input" id="act-date" type="date" />
+          <label class="field-label">ตำแหน่ง</label>
+          <input class="field-input" id="contact-position" placeholder="เช่น QMR, จัดซื้อ, เจ้าของ" />
+        </div>
+        <div>
+          <label class="field-label">เบอร์โทร</label>
+          <input class="field-input" id="contact-phone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)" placeholder="0812345678" />
         </div>
         <div class="col-span-2">
-          <label class="field-label">บริษัท</label>
-          <input class="field-input" id="act-company" placeholder="ชื่อบริษัทลูกค้า" />
+          <label class="field-label">อีเมล</label>
+          <input class="field-input" id="contact-email" type="email" placeholder="name@company.com" />
+        </div>
+        <div class="col-span-2 pt-2 border-t border-gray-100">
+          <p class="text-xs font-semibold text-ric-gray uppercase tracking-wider">ข้อมูลส่วนตัว/ที่อยู่ (ไม่บังคับ)</p>
+        </div>
+        <div>
+          <label class="field-label">เพศ</label>
+          <select class="field-input" id="contact-gender">
+            <option value="">ไม่ระบุ</option>
+            <option value="male">ชาย</option>
+            <option value="female">หญิง</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">อาชีพ</label>
+          <input class="field-input" id="contact-occupation" placeholder="อาชีพ" />
+        </div>
+        <div>
+          <label class="field-label">รหัสไปรษณีย์</label>
+          <input class="field-input" id="contact-postcode" placeholder="10xxx" inputmode="numeric" pattern="[0-9]*" maxlength="5" oninput="onPostcodeInput('contact')" />
+        </div>
+        <div>
+          <label class="field-label">ตำบล/แขวง</label>
+          <select class="field-input disabled:bg-gray-50 disabled:text-ric-gray" id="contact-sub-district" onchange="onSubDistrictChange('contact')" disabled>
+            <option value="">-- กรอกรหัสไปรษณีย์ก่อน --</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">อำเภอ/เขต</label>
+          <input class="field-input bg-gray-50" id="contact-district" readonly placeholder="อัตโนมัติจากตำบล" />
+        </div>
+        <div>
+          <label class="field-label">จังหวัด</label>
+          <input class="field-input bg-gray-50" id="contact-province" readonly placeholder="อัตโนมัติจากตำบล" />
         </div>
         <div class="col-span-2">
-          <label class="field-label">รายละเอียด *</label>
-          <textarea class="field-input h-24 resize-none" id="act-description" required placeholder="สรุปการติดต่อ..."></textarea>
+          <label class="field-label">ที่อยู่ 1</label>
+          <input class="field-input" id="contact-address1" placeholder="บ้านเลขที่ ถนน" />
         </div>
         <div class="col-span-2">
-          <label class="field-label">นัดติดตาม</label>
-          <input class="field-input" id="act-followup" type="date" />
-        </div>
-        <div class="col-span-2 hidden" data-admin-only>
-          <label class="field-label">บันทึกโดย</label>
-          <select class="field-input" data-owner-select id="act-owner"></select>
+          <label class="field-label">ที่อยู่ 2</label>
+          <input class="field-input" id="contact-address2" placeholder="หมู่บ้าน/อาคาร (ถ้ามี)" />
         </div>
       </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeActivityModal()" class="btn-secondary">ยกเลิก</button>
-        <button type="submit" class="btn-primary">บันทึก</button>
+      <div class="flex justify-between pt-2">
+        <button type="button" id="contact-delete-btn" onclick="deleteContact()" class="btn-danger hidden">ลบผู้ติดต่อนี้</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" onclick="closeContactModal()" class="btn-secondary">ยกเลิก</button>
+          <button type="submit" class="btn-primary">บันทึก</button>
+        </div>
       </div>
     </form>
   </div>
@@ -386,6 +448,10 @@ const CERT_OPTIONS = [
 let leads = [];
 let activities = [];
 let renewals = [];
+let companies = [];
+let contacts = [];
+let currentCompanyId = null;
+let currentLeadId = null;
 let currentView = 'dashboard';
 let me = null;
 let profiles = [];
@@ -455,10 +521,12 @@ function setupOwnerPickers() {
 
 // ── Data loading ───────────────────────────────────────────────────────────
 async function loadAll() {
-  const [l, a, r, who] = await Promise.all([
+  const [l, a, r, co, ct, who] = await Promise.all([
     api('/api/leads'),
     api('/api/activities'),
     api('/api/renewals'),
+    api('/api/companies'),
+    api('/api/contacts'),
     api('/api/me'),
   ]);
   me = who.me;
@@ -467,7 +535,17 @@ async function loadAll() {
   leads = l;
   activities = a;
   renewals = r;
+  companies = co;
+  contacts = ct;
   renderAll();
+}
+
+// The auto stage-change log row (and any other activity side-effect of a mutation, e.g. a
+// cascade-delete of a lead's activities) is written server-side, not by this client — so any
+// mutation that can add/remove activity rows must refetch `activities`, not just the table it
+// wrote directly. Called from onDrop, saveLead, and deleteLead.
+async function refreshActivities() {
+  activities = await api('/api/activities');
 }
 
 // ── Views ─────────────────────────────────────────────────────────────────
@@ -486,6 +564,14 @@ function renderAll() {
   if (currentView === 'pipeline') renderPipeline();
   if (currentView === 'renewals') renderRenewals();
   if (currentView === 'activities') renderActivities();
+  if (currentView === 'companies') renderCompanies();
+}
+
+// Shared by the "กิจกรรม" feed (Phase 2) and the company-detail deals list: jump straight to
+// a deal's edit modal from anywhere in the app.
+function openDeal(id) {
+  showView('pipeline');
+  openLeadModal(id);
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -513,8 +599,8 @@ function renderDashboard() {
         const stage = STAGES.find(s => s.id === l.stage) || STAGES[0];
         return `<div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 cursor-pointer" onclick="openLeadModal('${esc(l.id)}')">
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium truncate">${esc(l.company)}</p>
-            <p class="text-xs text-ric-gray">${esc(l.cert?.join(', ')) || '—'} · ${esc(l.contact) || '—'}</p>
+            <p class="text-sm font-medium truncate">${esc(l.company?.name)}</p>
+            <p class="text-xs text-ric-gray">${esc(l.cert?.join(', ')) || '—'} · ${esc(l.primary_contact?.full_name) || '—'}</p>
           </div>
           <span class="text-xs px-2 py-0.5 rounded-full ${stage.color}">${stage.label}</span>
           <span class="text-xs font-mono text-ric-gray">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
@@ -545,17 +631,25 @@ function renderPipeline() {
 }
 
 function renderLeadCard(l) {
+  const overdue = l.next_action_due && daysUntil(l.next_action_due) < 0;
+  const dueLabel = l.next_action_due
+    ? new Date(l.next_action_due).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+    : '';
+  const nextActionHtml = l.next_action
+    ? `<p class="text-[11px] mt-2 px-2 py-1 rounded-md ${overdue ? 'bg-red-50 text-ric-red' : 'bg-amber-50 text-amber-700'}">🔔 ${esc(l.next_action)}${dueLabel ? ` — ${overdue ? 'เลยกำหนด' : 'ครบกำหนด'} ${dueLabel}` : ''}</p>`
+    : '';
   return `<div class="lead-card" draggable="${canEdit(l)}"
     data-id="${esc(l.id)}"
     ondragstart="onDragStart(event, '${esc(l.id)}')"
     ondragend="onDragEnd(event)"
     onclick="openLeadModal('${esc(l.id)}')">
-    <p class="font-medium text-sm leading-tight mb-1">${esc(l.company)}</p>
+    <p class="font-medium text-sm leading-tight mb-1">${esc(l.company?.name)}</p>
     <p class="text-xs text-ric-gray mb-2">${esc(l.cert?.join(', ')) || '—'}</p>
     <div class="flex items-center justify-between">
-      <span class="text-xs text-ric-gray">${esc(l.contact) || '—'}</span>
+      <span class="text-xs text-ric-gray">${esc(l.primary_contact?.full_name) || '—'}${l.primary_contact?.position ? ` (${esc(l.primary_contact.position)})` : ''}</span>
       <span class="text-xs font-mono font-medium">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
     </div>
+    ${nextActionHtml}
     ${l.owner?.full_name ? `<p class="text-[10px] text-ric-gray/60 mt-1.5">👤 ${esc(l.owner.full_name)}</p>` : ''}
   </div>`;
 }
@@ -598,6 +692,9 @@ async function onDrop(e) {
       method: 'PUT',
       body: JSON.stringify({ stage: targetStage }),
     });
+    // The stage change just fired a DB trigger that inserted a stage_change activity row —
+    // refetch so the Log tab / activity feed show it without a full page reload.
+    await refreshActivities();
   } catch (err) {
     lead.stage = previousStage;
     renderPipeline();
@@ -645,21 +742,33 @@ function renderRenewals() {
 function renderActivities() {
   const sorted = [...activities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   document.getElementById('activities-list').innerHTML = sorted.length
-    ? sorted.map(a => `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
-        <div class="flex items-start justify-between gap-2">
+    ? sorted.map(a => {
+        const companyName = a.lead?.company?.name || '—';
+        if (a.type === 'stage_change') {
+          const oldLabel = STAGES.find(s => s.id === a.old_stage)?.label || a.old_stage;
+          const newLabel = STAGES.find(s => s.id === a.new_stage)?.label || a.new_stage;
+          return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 cursor-pointer hover:bg-gray-50" onclick="openDeal('${esc(a.lead_id)}')">
+            <div class="flex items-center gap-2 text-xs text-ric-gray">
+              <span class="font-mono">${esc(a.date)}</span>
+              <span>· ${esc(companyName)}</span>
+            </div>
+            <p class="text-sm mt-1">เปลี่ยนสถานะ: ${esc(oldLabel)} → ${esc(newLabel)}</p>
+          </div>`;
+        }
+        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 cursor-pointer hover:bg-gray-50" onclick="openDeal('${esc(a.lead_id)}')">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-sm">${esc(ACT_TYPE_LABEL[a.type] || a.type)}</span>
               <span class="text-xs font-mono text-ric-gray">${esc(a.date)}</span>
-              ${a.company ? `<span class="text-xs text-ric-gray">· ${esc(a.company)}</span>` : ''}
+              <span class="text-xs text-ric-gray">· ${esc(companyName)}</span>
             </div>
             <p class="text-sm">${esc(a.description)}</p>
             ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
             ${a.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(a.owner.full_name)}</p>` : ''}
           </div>
-        </div>
-      </div>`).join('')
-    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีกิจกรรม · <button onclick="openActivityModal()" class="text-ric-red hover:underline">บันทึกกิจกรรมแรก</button></div>';
+        </div>`;
+      }).join('')
+    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีกิจกรรม</div>';
 }
 
 function setCertCheckboxes(values) {
@@ -684,20 +793,111 @@ async function loadPostcodeData() {
   return postcodeData;
 }
 
+function populateCompanySelect(selectedId) {
+  const sel = document.getElementById('lead-company-id');
+  const options = [...companies]
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+    .map(co => `<option value="${esc(co.id)}">${esc(co.name)}</option>`).join('');
+  sel.innerHTML = '<option value="">-- เลือกบริษัท --</option>' + options + '<option value="__new__">+ เพิ่มบริษัทใหม่...</option>';
+  sel.value = selectedId || '';
+  onLeadCompanyChange();
+}
+
+function onLeadCompanyChange() {
+  const companyId = document.getElementById('lead-company-id').value;
+  document.getElementById('lead-new-company-wrap').classList.toggle('hidden', companyId !== '__new__');
+  populateContactSelect(companyId === '__new__' ? '' : companyId, '');
+}
+
+function populateContactSelect(companyId, selectedId) {
+  const sel = document.getElementById('lead-contact-id');
+  const options = contacts.filter(c => c.company_id === companyId)
+    .map(c => `<option value="${esc(c.id)}">${esc(c.full_name)}${c.position ? ` (${esc(c.position)})` : ''}</option>`).join('');
+  sel.innerHTML = '<option value="">-- ไม่ระบุ --</option>' + options + '<option value="__new__">+ เพิ่มผู้ติดต่อใหม่...</option>';
+  sel.value = selectedId || '';
+  onLeadContactChange();
+}
+
+function onLeadContactChange() {
+  const isNew = document.getElementById('lead-contact-id').value === '__new__';
+  document.getElementById('lead-new-contact-wrap').classList.toggle('hidden', !isNew);
+}
+
+function setTabButtonActive(btnId, active) {
+  const btn = document.getElementById(btnId);
+  btn.classList.toggle('border-ric-red', active);
+  btn.classList.toggle('text-ric-red', active);
+  btn.classList.toggle('border-transparent', !active);
+  btn.classList.toggle('text-ric-gray', !active);
+}
+
+function switchLeadTab(tab) {
+  document.getElementById('lead-tab-info').classList.toggle('hidden', tab !== 'info');
+  document.getElementById('lead-tab-log').classList.toggle('hidden', tab !== 'log');
+  setTabButtonActive('lead-tab-btn-info', tab === 'info');
+  setTabButtonActive('lead-tab-btn-log', tab === 'log');
+  if (tab === 'log') renderLeadLog();
+}
+
+function renderLeadLog() {
+  const entries = activities
+    .filter(a => a.lead_id === currentLeadId)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  document.getElementById('lead-log-list').innerHTML = entries.length
+    ? entries.map(a => {
+        if (a.type === 'stage_change') {
+          const oldLabel = STAGES.find(s => s.id === a.old_stage)?.label || a.old_stage;
+          const newLabel = STAGES.find(s => s.id === a.new_stage)?.label || a.new_stage;
+          return `<div class="text-xs text-ric-gray flex items-center gap-2">
+            <span class="font-mono">${esc(a.date)}</span>
+            <span>เปลี่ยนสถานะ: ${esc(oldLabel)} → ${esc(newLabel)}</span>
+          </div>`;
+        }
+        return `<div class="text-sm border-b border-gray-50 pb-2">
+          <div class="flex items-center gap-2 text-xs text-ric-gray mb-1">
+            <span class="bg-gray-100 px-2 py-0.5 rounded-sm">${esc(ACT_TYPE_LABEL[a.type] || a.type)}</span>
+            <span class="font-mono">${esc(a.date)}</span>
+          </div>
+          <p>${esc(a.description)}</p>
+          ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
+        </div>`;
+      }).join('')
+    : '<p class="text-sm text-ric-gray text-center py-6">ยังไม่มีบันทึก</p>';
+}
+
+async function saveLeadActivity(e) {
+  e.preventDefault();
+  const data = {
+    lead_id: currentLeadId,
+    type: document.getElementById('lead-act-type').value,
+    description: document.getElementById('lead-act-description').value,
+    followup: document.getElementById('lead-act-followup').value,
+  };
+  try {
+    activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify(data) }));
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  document.getElementById('lead-act-description').value = '';
+  document.getElementById('lead-act-followup').value = '';
+  renderLeadLog();
+}
+
 function onStageChange() {
   const quoted = document.getElementById('lead-stage').value === 'quoted';
   document.getElementById('lead-quote-link-wrap').classList.toggle('hidden', !quoted);
 }
 
-function setDistrictProvince(district, province) {
-  document.getElementById('lead-district').value = district;
-  document.getElementById('lead-province').value = province;
+function setDistrictProvince(prefix, district, province) {
+  document.getElementById(`${prefix}-district`).value = district;
+  document.getElementById(`${prefix}-province`).value = province;
 }
 
 // Fills the sub-district dropdown for a zip code without touching district/province — used
-// both when the user picks a postcode and when the edit modal restores a saved one.
-function populateSubDistricts(zip, selectedName) {
-  const subSel = document.getElementById('lead-sub-district');
+// both when the user picks a postcode and when an edit form restores a saved one.
+function populateSubDistricts(prefix, zip, selectedName) {
+  const subSel = document.getElementById(`${prefix}-sub-district`);
   const entry = postcodeData?.find(e => e.zipCode === zip);
   if (!entry) {
     subSel.innerHTML = '<option value="">-- กรอกรหัสไปรษณีย์ก่อน --</option>';
@@ -710,32 +910,191 @@ function populateSubDistricts(zip, selectedName) {
   subSel.value = entry.subDistrictList.some(s => s.subDistrictName === selectedName) ? selectedName : '';
 }
 
-function onPostcodeInput() {
-  const input = document.getElementById('lead-postcode');
+function onPostcodeInput(prefix) {
+  const input = document.getElementById(`${prefix}-postcode`);
   const digits = input.value.replace(/\D/g, '').slice(0, 5);
   if (digits !== input.value) input.value = digits;
 
-  populateSubDistricts(digits.length === 5 ? digits : '', '');
-  setDistrictProvince('', '');
+  populateSubDistricts(prefix, digits.length === 5 ? digits : '', '');
+  setDistrictProvince(prefix, '', '');
   if (digits.length !== 5) return;
 
   // Only ~4% of zip codes have just one sub-district — auto-pick it when that's the case.
   const entry = postcodeData?.find(e => e.zipCode === digits);
   if (entry?.subDistrictList.length === 1) {
-    document.getElementById('lead-sub-district').value = entry.subDistrictList[0].subDistrictName;
-    onSubDistrictChange();
+    document.getElementById(`${prefix}-sub-district`).value = entry.subDistrictList[0].subDistrictName;
+    onSubDistrictChange(prefix);
   }
 }
 
-function onSubDistrictChange() {
-  const zip = document.getElementById('lead-postcode').value;
-  const name = document.getElementById('lead-sub-district').value;
+function onSubDistrictChange(prefix) {
+  const zip = document.getElementById(`${prefix}-postcode`).value;
+  const name = document.getElementById(`${prefix}-sub-district`).value;
   const entry = postcodeData?.find(e => e.zipCode === zip);
   const sub = entry?.subDistrictList.find(s => s.subDistrictName === name);
-  if (!sub) { setDistrictProvince('', ''); return; }
+  if (!sub) { setDistrictProvince(prefix, '', ''); return; }
   const district = entry.districtList.find(d => d.districtId === sub.districtId);
   const province = entry.provinceList.find(p => p.provinceId === sub.provinceId);
-  setDistrictProvince(district?.districtName || '', province?.provinceName || '');
+  setDistrictProvince(prefix, district?.districtName || '', province?.provinceName || '');
+}
+
+// ── Companies ─────────────────────────────────────────────────────────────
+function renderCompanies() {
+  const query = (document.getElementById('company-search')?.value || '').trim().toLowerCase();
+  const sorted = [...companies]
+    .filter(co => !query || co.name.toLowerCase().includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  document.getElementById('companies-list').innerHTML = sorted.length
+    ? sorted.map(co => {
+        const contactCount = contacts.filter(c => c.company_id === co.id).length;
+        const dealCount = leads.filter(l => l.company_id === co.id).length;
+        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50" onclick="openCompanyDetail('${esc(co.id)}')">
+          <p class="font-medium text-sm">${esc(co.name)}</p>
+          <p class="text-xs text-ric-gray">${contactCount} ผู้ติดต่อ · ${dealCount} ดีล</p>
+        </div>`;
+      }).join('')
+    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีบริษัท</div>';
+}
+
+async function createCompany(e) {
+  e.preventDefault();
+  try {
+    companies.push(await api('/api/companies', {
+      method: 'POST',
+      body: JSON.stringify({ name: document.getElementById('company-name').value }),
+    }));
+  } catch (err) {
+    alert('เพิ่มบริษัทไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  document.getElementById('company-form').reset();
+  renderCompanies();
+}
+
+function openCompanyDetail(id) {
+  currentCompanyId = id;
+  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('view-company-detail').classList.remove('hidden');
+  renderCompanyDetail();
+}
+
+function closeCompanyDetail() {
+  currentCompanyId = null;
+  showView('companies');
+}
+
+function renderCompanyDetail() {
+  const company = companies.find(c => c.id === currentCompanyId);
+  if (!company) { closeCompanyDetail(); return; }
+  document.getElementById('company-detail-name').textContent = company.name;
+
+  const companyContacts = contacts.filter(c => c.company_id === currentCompanyId);
+  document.getElementById('company-contacts-list').innerHTML = companyContacts.length
+    ? companyContacts.map(c => `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center gap-4">
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-sm">${esc(c.full_name)}${c.position ? ` <span class="text-xs text-ric-gray">(${esc(c.position)})</span>` : ''}</p>
+          <p class="text-xs text-ric-gray mt-0.5 font-mono">${esc(c.phone) || '—'} · ${esc(c.email) || '—'}</p>
+        </div>
+        <button onclick="openContactModal('${esc(c.id)}')" class="text-ric-gray hover:text-ric-black" title="แก้ไข">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        </button>
+      </div>`).join('')
+    : '<div class="bg-white rounded-xl p-6 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีผู้ติดต่อ</div>';
+
+  const companyDeals = leads.filter(l => l.company_id === currentCompanyId);
+  document.getElementById('company-deals-list').innerHTML = companyDeals.length
+    ? companyDeals.map(l => {
+        const stage = STAGES.find(s => s.id === l.stage) || STAGES[0];
+        return `<div class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 cursor-pointer" onclick="openDeal('${esc(l.id)}')">
+          <span class="text-sm">${esc(l.primary_contact?.full_name) || 'ไม่ระบุผู้ติดต่อ'}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${stage.color}">${stage.label}</span>
+        </div>`;
+      }).join('')
+    : '<p class="text-sm text-ric-gray px-4 py-3">ยังไม่มีดีลของบริษัทนี้</p>';
+}
+
+// ── Contact Modal ─────────────────────────────────────────────────────────
+async function openContactModal(id = null) {
+  await loadPostcodeData();
+  document.getElementById('contact-id').value = id || '';
+  const deleteBtn = document.getElementById('contact-delete-btn');
+  if (id) {
+    const c = contacts.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('contact-modal-title').textContent = 'แก้ไขผู้ติดต่อ';
+    document.getElementById('contact-full-name').value = c.full_name || '';
+    document.getElementById('contact-position').value = c.position || '';
+    document.getElementById('contact-phone').value = c.phone || '';
+    document.getElementById('contact-email').value = c.email || '';
+    document.getElementById('contact-gender').value = c.gender || '';
+    document.getElementById('contact-occupation').value = c.occupation || '';
+    document.getElementById('contact-address1').value = c.address1 || '';
+    document.getElementById('contact-address2').value = c.address2 || '';
+    document.getElementById('contact-postcode').value = c.postcode || '';
+    populateSubDistricts('contact', c.postcode || '', c.sub_district || '');
+    setDistrictProvince('contact', c.district || '', c.province || '');
+    deleteBtn.classList.toggle('hidden', !isRoot());
+  } else {
+    document.getElementById('contact-modal-title').textContent = 'เพิ่มผู้ติดต่อ';
+    document.getElementById('contact-form').reset();
+    populateSubDistricts('contact', '', '');
+    deleteBtn.classList.add('hidden');
+  }
+  document.getElementById('modal-contact').classList.remove('hidden');
+}
+
+function closeContactModal() {
+  document.getElementById('modal-contact').classList.add('hidden');
+}
+
+async function saveContact(e) {
+  e.preventDefault();
+  const id = document.getElementById('contact-id').value;
+  const data = {
+    company_id: currentCompanyId,
+    full_name: document.getElementById('contact-full-name').value,
+    position: document.getElementById('contact-position').value,
+    phone: document.getElementById('contact-phone').value,
+    email: document.getElementById('contact-email').value,
+    gender: nullableInput('contact-gender'),
+    occupation: nullableInput('contact-occupation'),
+    address1: nullableInput('contact-address1'),
+    address2: nullableInput('contact-address2'),
+    sub_district: nullableInput('contact-sub-district'),
+    district: nullableInput('contact-district'),
+    province: nullableInput('contact-province'),
+    postcode: nullableInput('contact-postcode'),
+  };
+  try {
+    if (id) {
+      await api(`/api/contacts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    } else {
+      await api('/api/contacts', { method: 'POST', body: JSON.stringify(data) });
+    }
+    contacts = await api('/api/contacts');
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  closeContactModal();
+  renderCompanyDetail();
+}
+
+async function deleteContact() {
+  const id = document.getElementById('contact-id').value;
+  if (!id || !confirm('ลบผู้ติดต่อนี้ใช่ไหม?')) return;
+  try {
+    await api(`/api/contacts/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert('ลบไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  contacts = contacts.filter(c => c.id !== id);
+  // The DB sets any lead's primary_contact_id that pointed here to null (ON DELETE SET NULL) —
+  // refetch leads so cards/company-detail stop showing the deleted contact until reload.
+  leads = await api('/api/leads');
+  closeContactModal();
+  renderCompanyDetail();
 }
 
 // ── Lead Modal ────────────────────────────────────────────────────────────
@@ -743,34 +1102,26 @@ async function openLeadModal(id = null) {
   const modal = document.getElementById('modal-lead');
   const deleteBtn = document.getElementById('lead-delete-btn');
   let editable = true;
-
-  await loadPostcodeData();
+  currentLeadId = id;
+  switchLeadTab('info');
+  document.getElementById('lead-tab-btn-log').classList.toggle('hidden', !id);
 
   if (id) {
     const lead = leads.find(l => l.id === id);
     if (!lead) return;
     document.getElementById('lead-modal-title').textContent = 'แก้ไขลีด';
     document.getElementById('lead-id').value = lead.id;
-    document.getElementById('lead-company').value = lead.company || '';
-    document.getElementById('lead-contact').value = lead.contact || '';
-    document.getElementById('lead-phone').value = lead.phone || '';
-    document.getElementById('lead-email').value = lead.email || '';
+    populateCompanySelect(lead.company_id);
+    populateContactSelect(lead.company_id, lead.primary_contact_id || '');
     setCertCheckboxes(lead.cert || []);
     document.getElementById('lead-stage').value = lead.stage || 'new';
     document.getElementById('lead-value').value = lead.value || '';
     document.getElementById('lead-quote-link').value = lead.quote_link || '';
+    document.getElementById('lead-next-action').value = lead.next_action || '';
+    document.getElementById('lead-next-action-due').value = lead.next_action_due || '';
     onStageChange();
     document.getElementById('lead-owner').value = lead.owner_id;
     document.getElementById('lead-notes').value = lead.notes || '';
-    document.getElementById('lead-gender').value = lead.gender || '';
-    document.getElementById('lead-occupation').value = lead.occupation || '';
-    document.getElementById('lead-address1').value = lead.address1 || '';
-    document.getElementById('lead-address2').value = lead.address2 || '';
-    document.getElementById('lead-postcode').value = lead.postcode || '';
-    // Show the saved sub-district/district/province as-is; only re-derive them if the
-    // user changes the postcode or sub-district dropdown.
-    populateSubDistricts(lead.postcode || '', lead.sub_district || '');
-    setDistrictProvince(lead.district || '', lead.province || '');
     deleteBtn.classList.toggle('hidden', !isRoot());
     editable = canEdit(lead);
     if (!editable) document.getElementById('lead-modal-title').textContent = 'ดูลีด (แก้ไขได้เฉพาะเจ้าของ)';
@@ -780,16 +1131,12 @@ async function openLeadModal(id = null) {
     document.getElementById('lead-id').value = '';
     document.getElementById('lead-owner').value = me.id;
     onStageChange();
-    populateSubDistricts('', '');
+    populateCompanySelect('');
     deleteBtn.classList.add('hidden');
   }
 
   document.querySelectorAll('#lead-form input:not([type=hidden]), #lead-form select, #lead-form textarea')
     .forEach(el => { el.disabled = !editable; });
-  // The above re-enables the sub-district dropdown unconditionally; it should stay disabled
-  // until a postcode with sub-districts loaded is picked.
-  const subSel = document.getElementById('lead-sub-district');
-  if (editable) subSel.disabled = !postcodeData?.some(e => e.zipCode === document.getElementById('lead-postcode').value);
   document.getElementById('lead-submit-btn').classList.toggle('hidden', !editable);
 
   modal.classList.remove('hidden');
@@ -807,25 +1154,61 @@ function nullableInput(id) {
 async function saveLead(e) {
   e.preventDefault();
   const id = document.getElementById('lead-id').value;
+
+  // Validate both the new-company and new-contact names up front, before either POST fires —
+  // otherwise a blank contact name (or any later failure) can leave a company already created
+  // with no UI to remove it.
+  let companyId = document.getElementById('lead-company-id').value;
+  const creatingCompany = companyId === '__new__';
+  const newCompanyName = creatingCompany ? document.getElementById('lead-new-company-name').value.trim() : '';
+  if (creatingCompany && !newCompanyName) { alert('กรุณากรอกชื่อบริษัทใหม่'); return; }
+  if (!creatingCompany && !companyId) { alert('กรุณาเลือกบริษัท'); return; }
+
+  let contactId = document.getElementById('lead-contact-id').value;
+  const creatingContact = contactId === '__new__';
+  const newContactName = creatingContact ? document.getElementById('lead-new-contact-name').value.trim() : '';
+  if (creatingContact && !newContactName) { alert('กรุณากรอกชื่อผู้ติดต่อใหม่'); return; }
+
+  if (creatingCompany) {
+    try {
+      const created = await api('/api/companies', { method: 'POST', body: JSON.stringify({ name: newCompanyName }) });
+      companies.push(created);
+      companyId = created.id;
+    } catch (err) {
+      alert('เพิ่มบริษัทไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
+
+  if (creatingContact) {
+    try {
+      const created = await api('/api/contacts', {
+        method: 'POST',
+        body: JSON.stringify({
+          company_id: companyId,
+          full_name: newContactName,
+          position: document.getElementById('lead-new-contact-position').value,
+        }),
+      });
+      contacts.push(created);
+      contactId = created.id;
+    } catch (err) {
+      alert('เพิ่มผู้ติดต่อไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
+
   const data = {
-    company: document.getElementById('lead-company').value,
-    contact: document.getElementById('lead-contact').value,
-    phone: document.getElementById('lead-phone').value,
-    email: document.getElementById('lead-email').value,
+    company_id: companyId,
+    primary_contact_id: contactId || null,
     cert: getCertCheckboxes(),
     stage: document.getElementById('lead-stage').value,
     value: parseInt(document.getElementById('lead-value').value) || 0,
     // Only meaningful for the "เสนอราคา" stage, but harmless to keep if the stage changes later.
     quote_link: nullableInput('lead-quote-link'),
+    next_action: nullableInput('lead-next-action'),
+    next_action_due: nullableInput('lead-next-action-due'),
     notes: document.getElementById('lead-notes').value,
-    gender: nullableInput('lead-gender'),
-    occupation: nullableInput('lead-occupation'),
-    address1: nullableInput('lead-address1'),
-    address2: nullableInput('lead-address2'),
-    sub_district: nullableInput('lead-sub-district'),
-    district: nullableInput('lead-district'),
-    province: nullableInput('lead-province'),
-    postcode: nullableInput('lead-postcode'),
     ...ownerField('lead-owner'),
   };
 
@@ -835,7 +1218,9 @@ async function saveLead(e) {
     } else {
       await api('/api/leads', { method: 'POST', body: JSON.stringify(data) });
     }
-    leads = await api('/api/leads');
+    // A stage change (or any lead write) may have added an activity row server-side —
+    // refetch both together so the Log tab / feed reflect it without a reload.
+    [leads, activities] = await Promise.all([api('/api/leads'), api('/api/activities')]);
   } catch (err) {
     alert('บันทึกไม่สำเร็จ: ' + err.message);
     return;
@@ -854,40 +1239,10 @@ async function deleteLead() {
     alert('ลบไม่สำเร็จ: ' + err.message);
     return;
   }
-  leads = leads.filter(l => l.id !== id);
+  // Deleting a lead cascade-deletes its activities too — refetch both rather than filtering
+  // `leads` locally, so the activity feed doesn't keep showing rows for a lead that's gone.
+  [leads, activities] = await Promise.all([api('/api/leads'), api('/api/activities')]);
   closeLeadModal();
-  renderAll();
-}
-
-// ── Activity Modal ────────────────────────────────────────────────────────
-function openActivityModal() {
-  document.getElementById('act-date').value = new Date().toISOString().slice(0, 10);
-  document.getElementById('modal-activity').classList.remove('hidden');
-}
-
-function closeActivityModal() {
-  document.getElementById('modal-activity').classList.add('hidden');
-}
-
-async function saveActivity(e) {
-  e.preventDefault();
-  const data = {
-    type: document.getElementById('act-type').value,
-    date: document.getElementById('act-date').value,
-    company: document.getElementById('act-company').value,
-    description: document.getElementById('act-description').value,
-    followup: document.getElementById('act-followup').value,
-    ...ownerField('act-owner'),
-  };
-  try {
-    activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify(data) }));
-  } catch (err) {
-    alert('บันทึกไม่สำเร็จ: ' + err.message);
-    return;
-  }
-  closeActivityModal();
-  document.getElementById('modal-activity').querySelector('form').reset();
-  document.getElementById('act-owner').value = me.id;
   renderAll();
 }
 
