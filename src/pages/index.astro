@@ -165,12 +165,9 @@ const CERT_OPTIONS = [
 
   <!-- ACTIVITIES -->
   <div id="view-activities" class="hidden p-6">
-    <div class="flex items-center justify-between mb-6">
+    <div class="mb-6">
       <h1 class="text-xl font-semibold">กิจกรรมและติดตาม</h1>
-      <button onclick="openActivityModal()" class="btn-primary flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        บันทึกกิจกรรม
-      </button>
+      <p class="text-ric-gray text-sm mt-0.5">ทุกดีล อ่านอย่างเดียว — กดแถวเพื่อเปิดดีลนั้น เพิ่มบันทึกใหม่ได้จากในดีล (แท็บ Log)</p>
     </div>
     <div id="activities-list" class="space-y-3"></div>
   </div>
@@ -319,55 +316,6 @@ const CERT_OPTIONS = [
         <button type="submit" class="btn-primary w-full">บันทึก</button>
       </form>
     </div>
-  </div>
-</div>
-
-<!-- MODAL: Activity -->
-<div id="modal-activity" class="modal-overlay hidden" onclick="if(event.target===this)closeActivityModal()">
-  <div class="modal-box">
-    <div class="flex items-center justify-between p-5 border-b border-gray-100">
-      <h3 class="font-semibold">บันทึกกิจกรรม</h3>
-      <button onclick="closeActivityModal()" class="text-ric-gray hover:text-ric-black">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <form class="p-5 space-y-4" onsubmit="saveActivity(event)">
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="field-label">ประเภท</label>
-          <select class="field-input" id="act-type">
-            <option value="call">📞 โทรศัพท์</option>
-            <option value="email">✉️ อีเมล</option>
-            <option value="meeting">🤝 ประชุม</option>
-            <option value="note">📝 บันทึก</option>
-          </select>
-        </div>
-        <div>
-          <label class="field-label">วันที่</label>
-          <input class="field-input" id="act-date" type="date" />
-        </div>
-        <div class="col-span-2">
-          <label class="field-label">บริษัท</label>
-          <input class="field-input" id="act-company" placeholder="ชื่อบริษัทลูกค้า" />
-        </div>
-        <div class="col-span-2">
-          <label class="field-label">รายละเอียด *</label>
-          <textarea class="field-input h-24 resize-none" id="act-description" required placeholder="สรุปการติดต่อ..."></textarea>
-        </div>
-        <div class="col-span-2">
-          <label class="field-label">นัดติดตาม</label>
-          <input class="field-input" id="act-followup" type="date" />
-        </div>
-        <div class="col-span-2 hidden" data-admin-only>
-          <label class="field-label">บันทึกโดย</label>
-          <select class="field-input" data-owner-select id="act-owner"></select>
-        </div>
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeActivityModal()" class="btn-secondary">ยกเลิก</button>
-        <button type="submit" class="btn-primary">บันทึก</button>
-      </div>
-    </form>
   </div>
 </div>
 
@@ -780,21 +728,33 @@ function renderRenewals() {
 function renderActivities() {
   const sorted = [...activities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   document.getElementById('activities-list').innerHTML = sorted.length
-    ? sorted.map(a => `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
-        <div class="flex items-start justify-between gap-2">
+    ? sorted.map(a => {
+        const companyName = a.lead?.company?.name || '—';
+        if (a.type === 'stage_change') {
+          const oldLabel = STAGES.find(s => s.id === a.old_stage)?.label || a.old_stage;
+          const newLabel = STAGES.find(s => s.id === a.new_stage)?.label || a.new_stage;
+          return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 cursor-pointer hover:bg-gray-50" onclick="openDeal('${esc(a.lead_id)}')">
+            <div class="flex items-center gap-2 text-xs text-ric-gray">
+              <span class="font-mono">${esc(a.date)}</span>
+              <span>· ${esc(companyName)}</span>
+            </div>
+            <p class="text-sm mt-1">เปลี่ยนสถานะ: ${esc(oldLabel)} → ${esc(newLabel)}</p>
+          </div>`;
+        }
+        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 cursor-pointer hover:bg-gray-50" onclick="openDeal('${esc(a.lead_id)}')">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-sm">${esc(ACT_TYPE_LABEL[a.type] || a.type)}</span>
               <span class="text-xs font-mono text-ric-gray">${esc(a.date)}</span>
-              ${a.company ? `<span class="text-xs text-ric-gray">· ${esc(a.company)}</span>` : ''}
+              <span class="text-xs text-ric-gray">· ${esc(companyName)}</span>
             </div>
             <p class="text-sm">${esc(a.description)}</p>
             ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
             ${a.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(a.owner.full_name)}</p>` : ''}
           </div>
-        </div>
-      </div>`).join('')
-    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีกิจกรรม · <button onclick="openActivityModal()" class="text-ric-red hover:underline">บันทึกกิจกรรมแรก</button></div>';
+        </div>`;
+      }).join('')
+    : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีกิจกรรม</div>';
 }
 
 function setCertCheckboxes(values) {
@@ -1252,38 +1212,6 @@ async function deleteLead() {
   }
   leads = leads.filter(l => l.id !== id);
   closeLeadModal();
-  renderAll();
-}
-
-// ── Activity Modal ────────────────────────────────────────────────────────
-function openActivityModal() {
-  document.getElementById('act-date').value = new Date().toISOString().slice(0, 10);
-  document.getElementById('modal-activity').classList.remove('hidden');
-}
-
-function closeActivityModal() {
-  document.getElementById('modal-activity').classList.add('hidden');
-}
-
-async function saveActivity(e) {
-  e.preventDefault();
-  const data = {
-    type: document.getElementById('act-type').value,
-    date: document.getElementById('act-date').value,
-    company: document.getElementById('act-company').value,
-    description: document.getElementById('act-description').value,
-    followup: document.getElementById('act-followup').value,
-    ...ownerField('act-owner'),
-  };
-  try {
-    activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify(data) }));
-  } catch (err) {
-    alert('บันทึกไม่สำเร็จ: ' + err.message);
-    return;
-  }
-  closeActivityModal();
-  document.getElementById('modal-activity').querySelector('form').reset();
-  document.getElementById('act-owner').value = me.id;
   renderAll();
 }
 
