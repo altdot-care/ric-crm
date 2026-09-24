@@ -188,7 +188,9 @@ select pg_temp.expect('admin cannot delete a company',
 select pg_temp.expect('root deletes a company (cascades its contacts)',
   pg_temp.as_user(:root, $$delete from public.companies where id = 'dddddddd-0000-4000-8000-000000000001'$$), 'ok:1');
 select pg_temp.expect('cascade removed the contact too',
-  pg_temp.as_user(:root, $$select 1 from public.contacts where company_id = 'dddddddd-0000-4000-8000-000000000001' having count(*) = 0$$), 'ok:0');
+  -- `having count(*) = 0` still returns exactly one row (Postgres collapses to a single
+  -- implicit group even over an empty filtered set) — so row_count is 1, not 0, here.
+  pg_temp.as_user(:root, $$select 1 from public.contacts where company_id = 'dddddddd-0000-4000-8000-000000000001' having count(*) = 0$$), 'ok:1');
 
 do $$ begin raise notice 'ALL COMPANIES/CONTACTS TESTS PASSED'; end $$;
 
@@ -1719,7 +1721,9 @@ $$;
 \set sales '''eeeeeeee-0000-4000-8000-00000000000a'''
 
 select pg_temp.expect('no log rows before any change',
-  pg_temp.as_user(:sales, $$select 1 from public.activities where lead_id = 'eeeeeeee-2000-4000-8000-000000000001' having count(*) = 0$$), 'ok:0');
+  -- `having count(*) = 0` still returns exactly one row (Postgres collapses to a single
+  -- implicit group even over an empty filtered set) — so row_count is 1, not 0, here.
+  pg_temp.as_user(:sales, $$select 1 from public.activities where lead_id = 'eeeeeeee-2000-4000-8000-000000000001' having count(*) = 0$$), 'ok:1');
 
 select pg_temp.expect('changing stage succeeds',
   pg_temp.as_user(:sales, $$update public.leads set stage = 'contacted' where id = 'eeeeeeee-2000-4000-8000-000000000001'$$), 'ok:1');
