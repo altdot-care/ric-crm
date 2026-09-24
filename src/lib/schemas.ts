@@ -72,7 +72,10 @@ export const contactCreate = contactInput.partial({
   status: true,
   owner_id: true,
 });
-export const contactUpdate = contactInput.partial();
+// company_id is intentionally excluded: moving a contact between companies isn't a real use
+// case, and forbidding it via update removes the whole class of primary_contact_id ∈ company_id
+// invariant problems that an update-able company_id would reopen.
+export const contactUpdate = contactInput.omit({ company_id: true }).partial();
 
 export const activityCreate = z.object({
   lead_id: z.uuid(),

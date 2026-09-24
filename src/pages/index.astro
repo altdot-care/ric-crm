@@ -141,6 +141,9 @@ const CERT_OPTIONS = [
       </div>
       <button type="submit" class="btn-primary">เพิ่มบริษัท</button>
     </form>
+    <div class="mb-4">
+      <input class="field-input" id="company-search" placeholder="ค้นหาบริษัท..." oninput="renderCompanies()" />
+    </div>
     <div id="companies-list" class="space-y-3"></div>
   </div>
 
@@ -537,6 +540,14 @@ async function loadAll() {
   renderAll();
 }
 
+// The auto stage-change log row (and any other activity side-effect of a mutation, e.g. a
+// cascade-delete of a lead's activities) is written server-side, not by this client — so any
+// mutation that can add/remove activity rows must refetch `activities`, not just the table it
+// wrote directly. Called from onDrop, saveLead, and deleteLead.
+async function refreshActivities() {
+  activities = await api('/api/activities');
+}
+
 // ── Views ─────────────────────────────────────────────────────────────────
 function showView(view) {
   currentView = view;
@@ -681,6 +692,9 @@ async function onDrop(e) {
       method: 'PUT',
       body: JSON.stringify({ stage: targetStage }),
     });
+    // The stage change just fired a DB trigger that inserted a stage_change activity row —
+    // refetch so the Log tab / activity feed show it without a full page reload.
+    await refreshActivities();
   } catch (err) {
     lead.stage = previousStage;
     renderPipeline();
@@ -926,7 +940,10 @@ function onSubDistrictChange(prefix) {
 
 // ── Companies ─────────────────────────────────────────────────────────────
 function renderCompanies() {
-  const sorted = [...companies].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  const query = (document.getElementById('company-search')?.value || '').trim().toLowerCase();
+  const sorted = [...companies]
+    .filter(co => !query || co.name.toLowerCase().includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
   document.getElementById('companies-list').innerHTML = sorted.length
     ? sorted.map(co => {
         const contactCount = contacts.filter(c => c.company_id === co.id).length;
@@ -1073,6 +1090,9 @@ async function deleteContact() {
     return;
   }
   contacts = contacts.filter(c => c.id !== id);
+  // The DB sets any lead's primary_contact_id that pointed here to null (ON DELETE SET NULL) —
+  // refetch leads so cards/company-detail stop showing the deleted contact until reload.
+  leads = await api('/api/leads');
   closeContactModal();
   renderCompanyDetail();
 }
@@ -1135,12 +1155,23 @@ async function saveLead(e) {
   e.preventDefault();
   const id = document.getElementById('lead-id').value;
 
+  // Validate both the new-company and new-contact names up front, before either POST fires —
+  // otherwise a blank contact name (or any later failure) can leave a company already created
+  // with no UI to remove it.
   let companyId = document.getElementById('lead-company-id').value;
-  if (companyId === '__new__') {
-    const name = document.getElementById('lead-new-company-name').value.trim();
-    if (!name) { alert('กรุณากรอกชื่อบริษัทใหม่'); return; }
+  const creatingCompany = companyId === '__new__';
+  const newCompanyName = creatingCompany ? document.getElementById('lead-new-company-name').value.trim() : '';
+  if (creatingCompany && !newCompanyName) { alert('กรุณากรอกชื่อบริษัทใหม่'); return; }
+  if (!creatingCompany && !companyId) { alert('กรุณาเลือกบริษัท'); return; }
+
+  let contactId = document.getElementById('lead-contact-id').value;
+  const creatingContact = contactId === '__new__';
+  const newContactName = creatingContact ? document.getElementById('lead-new-contact-name').value.trim() : '';
+  if (creatingContact && !newContactName) { alert('กรุณากรอกชื่อผู้ติดต่อใหม่'); return; }
+
+  if (creatingCompany) {
     try {
-      const created = await api('/api/companies', { method: 'POST', body: JSON.stringify({ name }) });
+      const created = await api('/api/companies', { method: 'POST', body: JSON.stringify({ name: newCompanyName }) });
       companies.push(created);
       companyId = created.id;
     } catch (err) {
@@ -1148,18 +1179,14 @@ async function saveLead(e) {
       return;
     }
   }
-  if (!companyId) { alert('กรุณาเลือกบริษัท'); return; }
 
-  let contactId = document.getElementById('lead-contact-id').value;
-  if (contactId === '__new__') {
-    const full_name = document.getElementById('lead-new-contact-name').value.trim();
-    if (!full_name) { alert('กรุณากรอกชื่อผู้ติดต่อใหม่'); return; }
+  if (creatingContact) {
     try {
       const created = await api('/api/contacts', {
         method: 'POST',
         body: JSON.stringify({
           company_id: companyId,
-          full_name,
+          full_name: newContactName,
           position: document.getElementById('lead-new-contact-position').value,
         }),
       });
@@ -1191,7 +1218,9 @@ async function saveLead(e) {
     } else {
       await api('/api/leads', { method: 'POST', body: JSON.stringify(data) });
     }
-    leads = await api('/api/leads');
+    // A stage change (or any lead write) may have added an activity row server-side —
+    // refetch both together so the Log tab / feed reflect it without a reload.
+    [leads, activities] = await Promise.all([api('/api/leads'), api('/api/activities')]);
   } catch (err) {
     alert('บันทึกไม่สำเร็จ: ' + err.message);
     return;
@@ -1210,7 +1239,9 @@ async function deleteLead() {
     alert('ลบไม่สำเร็จ: ' + err.message);
     return;
   }
-  leads = leads.filter(l => l.id !== id);
+  // Deleting a lead cascade-deletes its activities too — refetch both rather than filtering
+  // `leads` locally, so the activity feed doesn't keep showing rows for a lead that's gone.
+  [leads, activities] = await Promise.all([api('/api/leads'), api('/api/activities')]);
   closeLeadModal();
   renderAll();
 }
