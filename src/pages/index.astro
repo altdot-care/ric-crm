@@ -2,6 +2,14 @@
 import Layout from '../layouts/Layout.astro';
 
 export const prerender = false;
+
+// RIC Certificate Auditor's service list — see template/ric-services.md.
+const CERT_OPTIONS = [
+  'ISO 9001', 'ISO 22000', 'ISO 22716', 'GHPs HACCP', 'GMP Codex', 'GMP อย.',
+  'มกษ. 1004', 'มกษ. 4403', 'มกษ. 9023', 'มกษ. 9024', 'มกษ. 9035', 'มกษ. 9039',
+  'มกษ. 9041', 'มกษ. 9046', 'มกษ. 9047', 'มกษ. 9070', 'มกษ. 4400', 'มกษ. 4401',
+  'มกษ. 9001', 'มกษ. 3502', 'Organic', 'มกษ. 9000',
+];
 ---
 
 <Layout>
@@ -187,28 +195,68 @@ export const prerender = false;
         </div>
         <div>
           <label class="field-label">เบอร์โทร</label>
-          <input class="field-input" id="lead-phone" placeholder="08x-xxx-xxxx" />
+          <input class="field-input" id="lead-phone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)" placeholder="0812345678" />
         </div>
         <div>
           <label class="field-label">อีเมล</label>
           <input class="field-input" id="lead-email" type="email" placeholder="name@company.com" />
         </div>
+        <div class="col-span-2 pt-2 border-t border-gray-100">
+          <p class="text-xs font-semibold text-ric-gray uppercase tracking-wider">ข้อมูลส่วนตัว/ที่อยู่ (ไม่บังคับ)</p>
+        </div>
         <div>
-          <label class="field-label">ใบรับรองที่สนใจ</label>
-          <select class="field-input" id="lead-cert">
-            <option value="">เลือกใบรับรอง</option>
-            <option>ISO 9001</option>
-            <option>ISO 14001</option>
-            <option>ISO 45001</option>
-            <option>ISO 27001</option>
-            <option>ISO 22000</option>
-            <option>GMP/HACCP</option>
-            <option>อื่นๆ</option>
+          <label class="field-label">เพศ</label>
+          <select class="field-input" id="lead-gender">
+            <option value="">ไม่ระบุ</option>
+            <option value="male">ชาย</option>
+            <option value="female">หญิง</option>
+            <option value="other">อื่นๆ</option>
           </select>
         </div>
         <div>
+          <label class="field-label">อาชีพ</label>
+          <input class="field-input" id="lead-occupation" placeholder="อาชีพ" />
+        </div>
+        <div>
+          <label class="field-label">รหัสไปรษณีย์</label>
+          <input class="field-input" id="lead-postcode" placeholder="10xxx" inputmode="numeric" pattern="[0-9]*" maxlength="5" oninput="onPostcodeInput()" />
+        </div>
+        <div>
+          <label class="field-label">ตำบล/แขวง</label>
+          <select class="field-input disabled:bg-gray-50 disabled:text-ric-gray" id="lead-sub-district" onchange="onSubDistrictChange()" disabled>
+            <option value="">-- กรอกรหัสไปรษณีย์ก่อน --</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">อำเภอ/เขต</label>
+          <input class="field-input bg-gray-50" id="lead-district" readonly placeholder="อัตโนมัติจากตำบล" />
+        </div>
+        <div>
+          <label class="field-label">จังหวัด</label>
+          <input class="field-input bg-gray-50" id="lead-province" readonly placeholder="อัตโนมัติจากตำบล" />
+        </div>
+        <div class="col-span-2">
+          <label class="field-label">ที่อยู่ 1</label>
+          <input class="field-input" id="lead-address1" placeholder="บ้านเลขที่ ถนน" />
+        </div>
+        <div class="col-span-2">
+          <label class="field-label">ที่อยู่ 2</label>
+          <input class="field-input" id="lead-address2" placeholder="หมู่บ้าน/อาคาร (ถ้ามี)" />
+        </div>
+        <div class="col-span-2">
+          <label class="field-label">ใบรับรองที่สนใจ (เลือกได้หลายรายการ)</label>
+          <div id="lead-cert" class="field-input h-32 overflow-y-auto space-y-1.5">
+            {CERT_OPTIONS.map((c) => (
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" value={c} class="rounded-sm border-gray-300 text-ric-red focus:ring-ric-red" />
+                {c}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
           <label class="field-label">Stage</label>
-          <select class="field-input" id="lead-stage">
+          <select class="field-input" id="lead-stage" onchange="onStageChange()">
             <option value="new">ลีดใหม่</option>
             <option value="contacted">ติดต่อแล้ว</option>
             <option value="quoted">เสนอราคา</option>
@@ -220,6 +268,10 @@ export const prerender = false;
         <div>
           <label class="field-label">มูลค่า (บาท)</label>
           <input class="field-input" id="lead-value" type="number" placeholder="0" min="0" />
+        </div>
+        <div class="col-span-2 hidden" id="lead-quote-link-wrap">
+          <label class="field-label">ลิงก์ใบเสนอราคา</label>
+          <input class="field-input" id="lead-quote-link" type="url" placeholder="https://..." />
         </div>
         <div data-admin-only class="hidden">
           <label class="field-label">ผู้รับผิดชอบ</label>
@@ -309,13 +361,7 @@ export const prerender = false;
           <label class="field-label">ประเภทใบรับรอง *</label>
           <select class="field-input" id="ren-cert" required>
             <option value="">เลือก</option>
-            <option>ISO 9001</option>
-            <option>ISO 14001</option>
-            <option>ISO 45001</option>
-            <option>ISO 27001</option>
-            <option>ISO 22000</option>
-            <option>GMP/HACCP</option>
-            <option>อื่นๆ</option>
+            {CERT_OPTIONS.map((c) => <option>{c}</option>)}
           </select>
         </div>
         <div>
@@ -468,7 +514,7 @@ function renderDashboard() {
         return `<div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 cursor-pointer" onclick="openLeadModal('${esc(l.id)}')">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium truncate">${esc(l.company)}</p>
-            <p class="text-xs text-ric-gray">${esc(l.cert) || '—'} · ${esc(l.contact) || '—'}</p>
+            <p class="text-xs text-ric-gray">${esc(l.cert?.join(', ')) || '—'} · ${esc(l.contact) || '—'}</p>
           </div>
           <span class="text-xs px-2 py-0.5 rounded-full ${stage.color}">${stage.label}</span>
           <span class="text-xs font-mono text-ric-gray">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
@@ -505,7 +551,7 @@ function renderLeadCard(l) {
     ondragend="onDragEnd(event)"
     onclick="openLeadModal('${esc(l.id)}')">
     <p class="font-medium text-sm leading-tight mb-1">${esc(l.company)}</p>
-    <p class="text-xs text-ric-gray mb-2">${esc(l.cert) || '—'}</p>
+    <p class="text-xs text-ric-gray mb-2">${esc(l.cert?.join(', ')) || '—'}</p>
     <div class="flex items-center justify-between">
       <span class="text-xs text-ric-gray">${esc(l.contact) || '—'}</span>
       <span class="text-xs font-mono font-medium">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
@@ -616,11 +662,89 @@ function renderActivities() {
     : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีกิจกรรม · <button onclick="openActivityModal()" class="text-ric-red hover:underline">บันทึกกิจกรรมแรก</button></div>';
 }
 
+function setCertCheckboxes(values) {
+  document.querySelectorAll('#lead-cert input[type=checkbox]')
+    .forEach(el => { el.checked = values.includes(el.value); });
+}
+function getCertCheckboxes() {
+  return [...document.querySelectorAll('#lead-cert input[type=checkbox]:checked')].map(el => el.value);
+}
+
+// ── Postcode → ตำบล/อำเภอ/จังหวัด (public/thai_postcode.json) ──────────────
+// One zip code can map to several sub-districts (up to ~30), and rarely to more than one
+// province, so the postcode alone doesn't determine the rest — the user picks the
+// sub-district too, and district/province are then derived and shown read-only.
+let postcodeData = null;
+
+async function loadPostcodeData() {
+  if (!postcodeData) {
+    const res = await fetch('/thai_postcode.json');
+    postcodeData = await res.json();
+  }
+  return postcodeData;
+}
+
+function onStageChange() {
+  const quoted = document.getElementById('lead-stage').value === 'quoted';
+  document.getElementById('lead-quote-link-wrap').classList.toggle('hidden', !quoted);
+}
+
+function setDistrictProvince(district, province) {
+  document.getElementById('lead-district').value = district;
+  document.getElementById('lead-province').value = province;
+}
+
+// Fills the sub-district dropdown for a zip code without touching district/province — used
+// both when the user picks a postcode and when the edit modal restores a saved one.
+function populateSubDistricts(zip, selectedName) {
+  const subSel = document.getElementById('lead-sub-district');
+  const entry = postcodeData?.find(e => e.zipCode === zip);
+  if (!entry) {
+    subSel.innerHTML = '<option value="">-- กรอกรหัสไปรษณีย์ก่อน --</option>';
+    subSel.disabled = true;
+    return;
+  }
+  subSel.disabled = false;
+  subSel.innerHTML = '<option value="">-- เลือกตำบล/แขวง --</option>' +
+    entry.subDistrictList.map(s => `<option value="${esc(s.subDistrictName)}">${esc(s.subDistrictName)}</option>`).join('');
+  subSel.value = entry.subDistrictList.some(s => s.subDistrictName === selectedName) ? selectedName : '';
+}
+
+function onPostcodeInput() {
+  const input = document.getElementById('lead-postcode');
+  const digits = input.value.replace(/\D/g, '').slice(0, 5);
+  if (digits !== input.value) input.value = digits;
+
+  populateSubDistricts(digits.length === 5 ? digits : '', '');
+  setDistrictProvince('', '');
+  if (digits.length !== 5) return;
+
+  // Only ~4% of zip codes have just one sub-district — auto-pick it when that's the case.
+  const entry = postcodeData?.find(e => e.zipCode === digits);
+  if (entry?.subDistrictList.length === 1) {
+    document.getElementById('lead-sub-district').value = entry.subDistrictList[0].subDistrictName;
+    onSubDistrictChange();
+  }
+}
+
+function onSubDistrictChange() {
+  const zip = document.getElementById('lead-postcode').value;
+  const name = document.getElementById('lead-sub-district').value;
+  const entry = postcodeData?.find(e => e.zipCode === zip);
+  const sub = entry?.subDistrictList.find(s => s.subDistrictName === name);
+  if (!sub) { setDistrictProvince('', ''); return; }
+  const district = entry.districtList.find(d => d.districtId === sub.districtId);
+  const province = entry.provinceList.find(p => p.provinceId === sub.provinceId);
+  setDistrictProvince(district?.districtName || '', province?.provinceName || '');
+}
+
 // ── Lead Modal ────────────────────────────────────────────────────────────
-function openLeadModal(id = null) {
+async function openLeadModal(id = null) {
   const modal = document.getElementById('modal-lead');
   const deleteBtn = document.getElementById('lead-delete-btn');
   let editable = true;
+
+  await loadPostcodeData();
 
   if (id) {
     const lead = leads.find(l => l.id === id);
@@ -631,11 +755,22 @@ function openLeadModal(id = null) {
     document.getElementById('lead-contact').value = lead.contact || '';
     document.getElementById('lead-phone').value = lead.phone || '';
     document.getElementById('lead-email').value = lead.email || '';
-    document.getElementById('lead-cert').value = lead.cert || '';
+    setCertCheckboxes(lead.cert || []);
     document.getElementById('lead-stage').value = lead.stage || 'new';
     document.getElementById('lead-value').value = lead.value || '';
+    document.getElementById('lead-quote-link').value = lead.quote_link || '';
+    onStageChange();
     document.getElementById('lead-owner').value = lead.owner_id;
     document.getElementById('lead-notes').value = lead.notes || '';
+    document.getElementById('lead-gender').value = lead.gender || '';
+    document.getElementById('lead-occupation').value = lead.occupation || '';
+    document.getElementById('lead-address1').value = lead.address1 || '';
+    document.getElementById('lead-address2').value = lead.address2 || '';
+    document.getElementById('lead-postcode').value = lead.postcode || '';
+    // Show the saved sub-district/district/province as-is; only re-derive them if the
+    // user changes the postcode or sub-district dropdown.
+    populateSubDistricts(lead.postcode || '', lead.sub_district || '');
+    setDistrictProvince(lead.district || '', lead.province || '');
     deleteBtn.classList.toggle('hidden', !isRoot());
     editable = canEdit(lead);
     if (!editable) document.getElementById('lead-modal-title').textContent = 'ดูลีด (แก้ไขได้เฉพาะเจ้าของ)';
@@ -644,11 +779,17 @@ function openLeadModal(id = null) {
     document.getElementById('lead-form').reset();
     document.getElementById('lead-id').value = '';
     document.getElementById('lead-owner').value = me.id;
+    onStageChange();
+    populateSubDistricts('', '');
     deleteBtn.classList.add('hidden');
   }
 
   document.querySelectorAll('#lead-form input:not([type=hidden]), #lead-form select, #lead-form textarea')
     .forEach(el => { el.disabled = !editable; });
+  // The above re-enables the sub-district dropdown unconditionally; it should stay disabled
+  // until a postcode with sub-districts loaded is picked.
+  const subSel = document.getElementById('lead-sub-district');
+  if (editable) subSel.disabled = !postcodeData?.some(e => e.zipCode === document.getElementById('lead-postcode').value);
   document.getElementById('lead-submit-btn').classList.toggle('hidden', !editable);
 
   modal.classList.remove('hidden');
@@ -656,6 +797,11 @@ function openLeadModal(id = null) {
 
 function closeLeadModal() {
   document.getElementById('modal-lead').classList.add('hidden');
+}
+
+// Empty means "not collected" for these fields, so send null rather than ''.
+function nullableInput(id) {
+  return document.getElementById(id).value.trim() || null;
 }
 
 async function saveLead(e) {
@@ -666,10 +812,20 @@ async function saveLead(e) {
     contact: document.getElementById('lead-contact').value,
     phone: document.getElementById('lead-phone').value,
     email: document.getElementById('lead-email').value,
-    cert: document.getElementById('lead-cert').value,
+    cert: getCertCheckboxes(),
     stage: document.getElementById('lead-stage').value,
     value: parseInt(document.getElementById('lead-value').value) || 0,
+    // Only meaningful for the "เสนอราคา" stage, but harmless to keep if the stage changes later.
+    quote_link: nullableInput('lead-quote-link'),
     notes: document.getElementById('lead-notes').value,
+    gender: nullableInput('lead-gender'),
+    occupation: nullableInput('lead-occupation'),
+    address1: nullableInput('lead-address1'),
+    address2: nullableInput('lead-address2'),
+    sub_district: nullableInput('lead-sub-district'),
+    district: nullableInput('lead-district'),
+    province: nullableInput('lead-province'),
+    postcode: nullableInput('lead-postcode'),
     ...ownerField('lead-owner'),
   };
 

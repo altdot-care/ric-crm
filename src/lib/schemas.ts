@@ -2,16 +2,32 @@ import { z } from 'zod';
 
 const text = (max: number) => z.string().trim().max(max);
 const isoDate = z.iso.date();
+// Digits only, up to 10 — matches the UI's on-input filter.
+const phone = z.string().regex(/^\d{0,10}$/, 'ตัวเลขเท่านั้น ไม่เกิน 10 หลัก');
+
+// Nullable, no default: absent means "not collected", distinct from an intentional empty string.
+const optionalText = (max: number) => z.union([z.null(), text(max)]).optional();
+const optionalUrl = (max: number) => z.union([z.null(), z.url().max(max)]).optional();
 
 export const leadInput = z.object({
   company: text(200).min(1),
   contact: text(200),
-  phone: text(50),
+  phone,
   email: z.union([z.literal(''), z.email().max(200)]),
-  cert: text(100),
+  cert: z.array(text(100)).max(10).default([]),
   stage: z.enum(['new', 'contacted', 'quoted', 'negotiating', 'won', 'lost']),
   value: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   notes: text(5000),
+  postcode: optionalText(50),
+  gender: optionalText(50),
+  occupation: optionalText(200),
+  address1: optionalText(200),
+  address2: optionalText(200),
+  sub_district: optionalText(100),
+  district: optionalText(100),
+  province: optionalText(100),
+  quote_link: optionalUrl(500),
+  status: z.number().int().min(0).max(32767).default(1),
   owner_id: z.uuid(),
 });
 export const leadCreate = leadInput.partial({
@@ -22,6 +38,16 @@ export const leadCreate = leadInput.partial({
   stage: true,
   value: true,
   notes: true,
+  postcode: true,
+  gender: true,
+  occupation: true,
+  address1: true,
+  address2: true,
+  sub_district: true,
+  district: true,
+  province: true,
+  quote_link: true,
+  status: true,
   owner_id: true,
 });
 export const leadUpdate = leadInput.partial();
