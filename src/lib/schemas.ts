@@ -17,6 +17,8 @@ export const leadInput = z.object({
   value: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   notes: text(5000),
   quote_link: optionalUrl(500),
+  next_action: optionalText(200),
+  next_action_due: z.union([z.null(), isoDate]).optional(),
   owner_id: z.uuid(),
 });
 export const leadCreate = leadInput.partial({
@@ -26,6 +28,8 @@ export const leadCreate = leadInput.partial({
   value: true,
   notes: true,
   quote_link: true,
+  next_action: true,
+  next_action_due: true,
   owner_id: true,
 });
 export const leadUpdate = leadInput.partial();
@@ -71,8 +75,10 @@ export const contactCreate = contactInput.partial({
 export const contactUpdate = contactInput.partial();
 
 export const activityCreate = z.object({
+  lead_id: z.uuid(),
+  // stage_change is written only by the database trigger (security definer, bypasses this
+  // schema entirely) — never accept it from a client request.
   type: z.enum(['call', 'email', 'meeting', 'note']).default('note'),
-  company: text(200).default(''),
   description: text(5000).min(1),
   date: isoDate.optional(),
   followup: z.union([isoDate, z.literal('')]).optional(),
