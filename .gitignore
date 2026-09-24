@@ -45,3 +45,4 @@ coverage/
 Thumbs.db
 .claude/settings.local.json
 *.log
+.claude/
