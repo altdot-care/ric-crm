@@ -218,6 +218,11 @@ const CERT_OPTIONS = [
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
+    <div class="flex border-b border-gray-100 px-5">
+      <button type="button" onclick="switchLeadTab('info')" id="lead-tab-btn-info" class="px-3 py-2.5 text-sm font-medium border-b-2 border-ric-red text-ric-red">ข้อมูล</button>
+      <button type="button" onclick="switchLeadTab('log')" id="lead-tab-btn-log" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black hidden">Log</button>
+    </div>
+    <div id="lead-tab-info">
     <form id="lead-form" class="p-5 space-y-4" onsubmit="saveLead(event)">
       <input type="hidden" id="lead-id" />
       <div class="grid grid-cols-2 gap-4">
@@ -297,6 +302,23 @@ const CERT_OPTIONS = [
         </div>
       </div>
     </form>
+    </div>
+    <div id="lead-tab-log" class="hidden p-5">
+      <div id="lead-log-list" class="space-y-3 mb-4 max-h-64 overflow-y-auto"></div>
+      <form onsubmit="saveLeadActivity(event)" class="border-t border-gray-100 pt-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <select class="field-input" id="lead-act-type">
+            <option value="call">📞 โทรศัพท์</option>
+            <option value="email">✉️ อีเมล</option>
+            <option value="meeting">🤝 ประชุม</option>
+            <option value="note">📝 บันทึก</option>
+          </select>
+          <input class="field-input" id="lead-act-followup" type="date" />
+        </div>
+        <textarea class="field-input h-16 resize-none" id="lead-act-description" required placeholder="บันทึกใหม่..."></textarea>
+        <button type="submit" class="btn-primary w-full">บันทึก</button>
+      </form>
+    </div>
   </div>
 </div>
 
@@ -478,6 +500,7 @@ let renewals = [];
 let companies = [];
 let contacts = [];
 let currentCompanyId = null;
+let currentLeadId = null;
 let currentView = 'dashboard';
 let me = null;
 let profiles = [];
@@ -826,6 +849,67 @@ function onLeadContactChange() {
   document.getElementById('lead-new-contact-wrap').classList.toggle('hidden', !isNew);
 }
 
+function setTabButtonActive(btnId, active) {
+  const btn = document.getElementById(btnId);
+  btn.classList.toggle('border-ric-red', active);
+  btn.classList.toggle('text-ric-red', active);
+  btn.classList.toggle('border-transparent', !active);
+  btn.classList.toggle('text-ric-gray', !active);
+}
+
+function switchLeadTab(tab) {
+  document.getElementById('lead-tab-info').classList.toggle('hidden', tab !== 'info');
+  document.getElementById('lead-tab-log').classList.toggle('hidden', tab !== 'log');
+  setTabButtonActive('lead-tab-btn-info', tab === 'info');
+  setTabButtonActive('lead-tab-btn-log', tab === 'log');
+  if (tab === 'log') renderLeadLog();
+}
+
+function renderLeadLog() {
+  const entries = activities
+    .filter(a => a.lead_id === currentLeadId)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  document.getElementById('lead-log-list').innerHTML = entries.length
+    ? entries.map(a => {
+        if (a.type === 'stage_change') {
+          const oldLabel = STAGES.find(s => s.id === a.old_stage)?.label || a.old_stage;
+          const newLabel = STAGES.find(s => s.id === a.new_stage)?.label || a.new_stage;
+          return `<div class="text-xs text-ric-gray flex items-center gap-2">
+            <span class="font-mono">${esc(a.date)}</span>
+            <span>เปลี่ยนสถานะ: ${esc(oldLabel)} → ${esc(newLabel)}</span>
+          </div>`;
+        }
+        return `<div class="text-sm border-b border-gray-50 pb-2">
+          <div class="flex items-center gap-2 text-xs text-ric-gray mb-1">
+            <span class="bg-gray-100 px-2 py-0.5 rounded-sm">${esc(ACT_TYPE_LABEL[a.type] || a.type)}</span>
+            <span class="font-mono">${esc(a.date)}</span>
+          </div>
+          <p>${esc(a.description)}</p>
+          ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
+        </div>`;
+      }).join('')
+    : '<p class="text-sm text-ric-gray text-center py-6">ยังไม่มีบันทึก</p>';
+}
+
+async function saveLeadActivity(e) {
+  e.preventDefault();
+  const data = {
+    lead_id: currentLeadId,
+    type: document.getElementById('lead-act-type').value,
+    description: document.getElementById('lead-act-description').value,
+    followup: document.getElementById('lead-act-followup').value,
+  };
+  try {
+    activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify(data) }));
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  document.getElementById('lead-act-description').value = '';
+  document.getElementById('lead-act-followup').value = '';
+  renderLeadLog();
+}
+
 function onStageChange() {
   const quoted = document.getElementById('lead-stage').value === 'quoted';
   document.getElementById('lead-quote-link-wrap').classList.toggle('hidden', !quoted);
@@ -1038,6 +1122,9 @@ async function openLeadModal(id = null) {
   const modal = document.getElementById('modal-lead');
   const deleteBtn = document.getElementById('lead-delete-btn');
   let editable = true;
+  currentLeadId = id;
+  switchLeadTab('info');
+  document.getElementById('lead-tab-btn-log').classList.toggle('hidden', !id);
 
   if (id) {
     const lead = leads.find(l => l.id === id);
