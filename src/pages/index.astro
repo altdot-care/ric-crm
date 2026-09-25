@@ -502,13 +502,11 @@ const CERT_OPTIONS = [
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2">
           <label class="field-label">บริษัท *</label>
-          <select class="field-input" id="ren-company-id" required onchange="onRenewalCompanyChange()">
-            <option value="">-- เลือกบริษัท --</option>
-          </select>
-        </div>
-        <div class="col-span-2 hidden" id="ren-new-company-wrap">
-          <label class="field-label">ชื่อบริษัทใหม่</label>
-          <input class="field-input" id="ren-new-company-name" placeholder="บริษัท ... จำกัด" />
+          <input class="field-input" id="ren-company-search" list="ren-company-datalist" required
+            autocomplete="off" placeholder="พิมพ์ชื่อบริษัท..." oninput="onRenewalCompanySearchInput()" />
+          <datalist id="ren-company-datalist"></datalist>
+          <p class="text-xs text-ric-gray mt-1">พิมพ์ชื่อที่มีอยู่เพื่อเลือก หรือพิมพ์ชื่อใหม่เพื่อเพิ่มบริษัทใหม่</p>
+          <input type="hidden" id="ren-company-id" />
         </div>
         <div class="col-span-2">
           <label class="field-label">ประเภทใบรับรอง *</label>
@@ -1668,31 +1666,32 @@ async function deleteLead() {
 }
 
 // ── Renewal Modal ─────────────────────────────────────────────────────────
-function populateRenewalCompanySelect(selectedId) {
-  const sel = document.getElementById('ren-company-id');
-  const options = [...companies]
+function populateRenewalCompanyDatalist() {
+  document.getElementById('ren-company-datalist').innerHTML = [...companies]
     .sort((a, b) => a.name.localeCompare(b.name, 'th'))
-    .map(co => `<option value="${esc(co.id)}">${esc(co.name)}</option>`).join('');
-  sel.innerHTML = '<option value="">-- เลือกบริษัท --</option>' + options + '<option value="__new__">+ เพิ่มบริษัทใหม่...</option>';
-  sel.value = selectedId || '';
-  onRenewalCompanyChange();
+    .map(co => `<option value="${esc(co.name)}"></option>`).join('');
 }
 
-function onRenewalCompanyChange() {
-  const companyId = document.getElementById('ren-company-id').value;
-  document.getElementById('ren-new-company-wrap').classList.toggle('hidden', companyId !== '__new__');
+// Resolves the typed text to an existing company's id by exact name match. No match means
+// "not an existing company" — saveRenewal() treats that as a request to create a new one.
+function onRenewalCompanySearchInput() {
+  const typed = document.getElementById('ren-company-search').value.trim();
+  const match = companies.find(co => co.name === typed);
+  document.getElementById('ren-company-id').value = match ? match.id : '';
 }
 
 function openRenewalModal(id = null) {
   const deleteBtn = document.getElementById('ren-delete-btn');
   let editable = true;
   document.getElementById('ren-id').value = id || '';
+  populateRenewalCompanyDatalist();
 
   if (id) {
     const renewal = renewals.find(r => r.id === id);
     if (!renewal) return;
     document.getElementById('renewal-modal-title').textContent = 'แก้ไขใบรับรอง';
-    populateRenewalCompanySelect(renewal.company_id);
+    document.getElementById('ren-company-search').value = renewal.company?.name || '';
+    document.getElementById('ren-company-id').value = renewal.company_id;
     document.getElementById('ren-cert').value = renewal.cert || '';
     document.getElementById('ren-audit-due').value = renewal.audit_due || '';
     document.getElementById('ren-expiry').value = renewal.expiry || '';
@@ -1704,8 +1703,8 @@ function openRenewalModal(id = null) {
     document.getElementById('renewal-modal-title').textContent = 'เพิ่มใบรับรอง';
     document.getElementById('modal-renewal').querySelector('form').reset();
     document.getElementById('ren-id').value = '';
+    document.getElementById('ren-company-id').value = '';
     document.getElementById('ren-owner').value = me.id;
-    populateRenewalCompanySelect('');
     deleteBtn.classList.add('hidden');
   }
 
@@ -1724,17 +1723,16 @@ async function saveRenewal(e) {
   e.preventDefault();
   const id = document.getElementById('ren-id').value;
 
-  // Validate before any POST fires — same guard as saveLead, so a blank new-company name can't
-  // leave an orphan company with no UI to remove it.
-  let companyId = document.getElementById('ren-company-id').value;
-  const creatingCompany = companyId === '__new__';
-  const newCompanyName = creatingCompany ? document.getElementById('ren-new-company-name').value.trim() : '';
-  if (creatingCompany && !newCompanyName) { alert('กรุณากรอกชื่อบริษัทใหม่'); return; }
-  if (!creatingCompany && !companyId) { alert('กรุณาเลือกบริษัท'); return; }
+  // The typed text may or may not match an existing company — re-resolve here rather than
+  // trusting the hidden field alone, in case the user typed after their last keystroke handler
+  // ran (e.g. picked a datalist suggestion without a trailing input event in some browsers).
+  const typedName = document.getElementById('ren-company-search').value.trim();
+  if (!typedName) { alert('กรุณาพิมพ์ชื่อบริษัท'); return; }
+  let companyId = companies.find(co => co.name === typedName)?.id || '';
 
-  if (creatingCompany) {
+  if (!companyId) {
     try {
-      const created = await api('/api/companies', { method: 'POST', body: JSON.stringify({ name: newCompanyName }) });
+      const created = await api('/api/companies', { method: 'POST', body: JSON.stringify({ name: typedName }) });
       companies.push(created);
       companyId = created.id;
     } catch (err) {
