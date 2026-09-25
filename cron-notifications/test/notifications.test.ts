@@ -75,7 +75,7 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
     return fetch(target, init);
   } } });
   const company = randomUUID(), lead = randomUUID();
-  const due = randomUUID(), past = randomUUID(), timed = randomUUID(), renewal = randomUUID();
+  const due = randomUUID(), past = randomUUID(), timed = randomUUID(), late = randomUUID(), renewal = randomUUID();
   const now = new Date('2026-09-26T02:00:00Z'); // 09:00 on Sep 26 in Bangkok
   const keys = webpush.generateVAPIDKeys();
   const env = { SUPABASE_URL: url, SUPABASE_SECRET_KEY: secret, VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
@@ -98,6 +98,7 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
       { id: randomUUID(), lead_id: lead, type: 'call', description: 'future', followup: '2026-09-27', owner_id: owner },
       { id: timed, lead_id: lead, type: 'call', description: 'timed earlier today', followup: '2026-09-26', followup_time: '08:30', owner_id: owner },
       { id: randomUUID(), lead_id: lead, type: 'call', description: 'timed later today', followup: '2026-09-26', followup_time: '09:30', owner_id: owner },
+      { id: late, lead_id: lead, type: 'call', description: 'after the last run', followup: '2026-09-26', followup_time: '23:58', owner_id: owner },
       { id: randomUUID(), lead_id: lead, type: 'note', description: 'no follow-up', owner_id: owner },
     ]));
     ok(await db.from('renewals').insert({ id: renewal, company_id: company, cert: 'ISO 9001', audit_due: '2026-10-26', expiry: '2026-09-25', owner_id: owner }));
@@ -106,6 +107,10 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
     const at8 = await findCandidates(scoped, new Date('2026-09-26T01:00:00Z')); // 08:00 Bangkok
     assert.deepEqual(at8.map(c => c.kind).sort(), ['followup_due', 'renewal_audit_due', 'renewal_expiry_overdue'],
       'at 08:00 the untimed follow-up and certificates go; the 08:30 and 09:30 ones do not yet');
+    // The last run of the day is 23:55 Bangkok: a 23:58 follow-up goes out then, not never.
+    const ids = async (at: string) => (await findCandidates(scoped, new Date(at))).map(c => c.entityId);
+    assert.ok(!(await ids('2026-09-26T16:54:00Z')).includes(late), 'not yet at 23:54 Bangkok');
+    assert.ok((await ids('2026-09-26T16:55:00Z')).includes(late), 'sent by the 23:55 Bangkok run');
     const candidates = await findCandidates(scoped, now);
     assert.deepEqual(candidates.map(c => c.kind).sort(), ['followup_due', 'followup_due', 'renewal_audit_due', 'renewal_expiry_overdue']);
     await run(env, { client: scoped, send, now });
@@ -154,4 +159,75 @@ test('Bangkok minute-of-day and follow-up start minute, including the midnight b
   assert.equal(m.followupStartMinute('14:30:00'), 870, 'Postgres time has seconds');
   assert.equal(m.followupStartMinute('14:30'), 870, 'input time does not');
   assert.equal(m.followupStartMinute('00:00:00'), 0, 'a midnight follow-up starts at minute 0, not the 08:00 default');
+});
+
+test('follow-ups timed after the last run of the day (23:55) start at that run instead of never', async () => {
+  const m = await import('../src/notifications.ts');
+  assert.equal(m.LAST_RUN_MINUTE, 23 * 60 + 55);
+  assert.equal(m.effectiveStartMinute(null), 480);
+  assert.equal(m.effectiveStartMinute('14:30:00'), 870);
+  assert.equal(m.effectiveStartMinute('23:55'), 1435);
+  assert.equal(m.effectiveStartMinute('23:58:00'), 1435);
+  assert.equal(m.effectiveStartMinute('23:59'), 1435);
+  assert.equal(m.effectiveStartMinute('00:00:00'), 0);
+});
+
+test('chunk splits a list into fixed-size pieces with a shorter remainder', async () => {
+  const { chunk } = await import('../src/notifications.ts');
+  assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  assert.deepEqual(chunk([1, 2, 3, 4], 2), [[1, 2], [3, 4]]);
+  assert.deepEqual(chunk([1, 2], 100), [[1, 2]]);
+  assert.deepEqual(chunk([], 100), []);
+});
+
+test('local database: a rerun costs a fixed number of requests, however many candidates are already claimed', async () => {
+  const { run } = await import('../src/notifications.ts');
+  process.loadEnvFile(new URL('../../.dev.vars', import.meta.url).pathname);
+  const url = process.env.SUPABASE_URL!;
+  assert.ok(['localhost', '127.0.0.1'].includes(new URL(url).hostname), 'tests must use LOCAL Supabase');
+  const secret = process.env.SUPABASE_SECRET_KEY!;
+  const owner = randomUUID(), company = randomUUID(), lead = randomUUID();
+  const db = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
+  let requests = 0;
+  const scoped = createClient(url, secret, { auth: { persistSession: false }, global: { fetch: (input, init) => {
+    requests++;
+    const target = new URL(String(input));
+    if (['/rest/v1/activities', '/rest/v1/renewals'].includes(target.pathname)) target.searchParams.set('owner_id', `eq.${owner}`);
+    return fetch(target, init);
+  } } });
+  const keys = webpush.generateVAPIDKeys();
+  const env = { SUPABASE_URL: url, SUPABASE_SECRET_KEY: secret, VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
+  const now = new Date('2026-09-26T02:00:00Z'); // 09:00 on Sep 26 in Bangkok
+  const ids = Array.from({ length: 30 }, () => randomUUID());
+  let sent = 0;
+  const send = async (subscription: { endpoint: string }) => {
+    if (subscription.endpoint.endsWith('/dead')) return 410;
+    sent++;
+    return 201;
+  };
+  const ok = (result: { error: unknown }) => assert.equal(result.error, null);
+  try {
+    ok(await db.auth.admin.createUser({ id: owner, email: `push-${owner}@example.test`, password: randomUUID(), email_confirm: true }));
+    ok(await db.from('companies').insert({ id: company, name: 'Batch test', owner_id: owner }));
+    ok(await db.from('leads').insert({ id: lead, company_id: company, owner_id: owner }));
+    ok(await db.from('activities').insert(ids.map(id => ({ id, lead_id: lead, type: 'call', description: 'due', followup: '2026-09-26', owner_id: owner }))));
+    const device = { p256dh: 'B' + 'a'.repeat(86), auth: 'b'.repeat(22) };
+    ok(await db.from('push_subscriptions').insert([
+      { owner_id: owner, endpoint: `https://fcm.googleapis.com/${owner}/good`, ...device },
+      { owner_id: owner, endpoint: `https://fcm.googleapis.com/${owner}/dead`, ...device },
+    ]));
+    assert.deepEqual(await run(env, { client: scoped, send, now }), { sent: 30, skipped: 0, failed: 1, pruned: 1 },
+      'a device found gone is pruned once and not retried for the later candidates');
+    requests = 0;
+    assert.deepEqual(await run(env, { client: scoped, send, now }), { sent: 0, skipped: 30, failed: 0, pruned: 0 });
+    assert.equal(sent, 30, 'the rerun sends nothing');
+    assert.ok(requests <= 10, `rerun made ${requests} REST requests`);
+  } finally {
+    ok(await db.from('notification_log').delete().in('entity_id', ids));
+    ok(await db.from('push_subscriptions').delete().eq('owner_id', owner));
+    ok(await db.from('activities').delete().eq('owner_id', owner));
+    ok(await db.from('leads').delete().eq('owner_id', owner));
+    ok(await db.from('companies').delete().eq('owner_id', owner));
+    ok(await db.auth.admin.deleteUser(owner));
+  }
 });

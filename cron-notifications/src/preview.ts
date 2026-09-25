@@ -1,11 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'node:crypto';
+import webpush from 'web-push';
 import { isPushEndpoint } from '../../src/lib/push-endpoint.ts';
-import { deliver, findCandidates, sendPush, type NotificationEnv, type SendFn } from './notifications.ts';
+import { chunk, deliver, findCandidates, sendPush, type NotificationEnv, type SendFn } from './notifications.ts';
 
 interface PreviewDeps { db?: SupabaseClient; send?: SendFn; now?: Date }
 
 const ROUTES = new Set(['/preview/test-push', '/preview/dry-run']);
+/** A shorter shared secret is treated as not configured. */
+const MIN_SECRET_LENGTH = 32;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const reply = (data: unknown, status = 200) => Response.json(data, { status });
 
@@ -22,7 +25,7 @@ async function sameSecret(given: string, expected: string): Promise<boolean> {
 export async function handlePreview(request: Request, env: NotificationEnv, deps: PreviewDeps = {}): Promise<Response> {
   const path = new URL(request.url).pathname;
   if (request.method !== 'POST' || !ROUTES.has(path)) return reply({ error: 'Not found' }, 404);
-  if (!env.NOTIFIER_SECRET) return reply({ error: 'Preview endpoints are not configured' }, 503);
+  if (!env.NOTIFIER_SECRET || env.NOTIFIER_SECRET.length < MIN_SECRET_LENGTH) return reply({ error: 'Preview endpoints are not configured' }, 503);
   const bearer = /^Bearer (.+)$/.exec(request.headers.get('Authorization') ?? '');
   if (!bearer || !(await sameSecret(bearer[1], env.NOTIFIER_SECRET))) return reply({ error: 'Unauthorized' }, 401);
 
@@ -38,6 +41,10 @@ export async function handlePreview(request: Request, env: NotificationEnv, deps
 }
 
 async function testPush(request: Request, env: NotificationEnv, db: SupabaseClient, send?: SendFn): Promise<Response> {
+  // Validate VAPID up front, like run(), so a misconfiguration is reported before any database access.
+  try {
+    webpush.setVapidDetails(env.VAPID_SUBJECT || 'mailto:support@ricroyal.co.th', env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
+  } catch { return reply({ error: 'VAPID is not configured' }, 503); }
   let body: { ownerId?: unknown };
   try { body = await request.json(); } catch { return reply({ error: 'Invalid JSON body' }, 400); }
   if (typeof body.ownerId !== 'string' || !UUID.test(body.ownerId)) return reply({ error: 'ownerId must be a uuid' }, 400);
@@ -53,8 +60,8 @@ async function testPush(request: Request, env: NotificationEnv, db: SupabaseClie
 async function dryRun(db: SupabaseClient, now: Date): Promise<Response> {
   const shown = (await findCandidates(db, now)).slice(0, 200);
   const logged = new Set<string>();
-  if (shown.length) {
-    const { data, error } = await db.from('notification_log').select('kind, entity_id').in('entity_id', shown.map(c => c.entityId));
+  for (const ids of chunk([...new Set(shown.map(c => c.entityId))], 100)) {
+    const { data, error } = await db.from('notification_log').select('kind, entity_id').in('entity_id', ids);
     if (error) throw error;
     for (const row of data ?? []) logged.add(`${row.kind}:${row.entity_id}`);
   }

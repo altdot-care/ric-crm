@@ -47,6 +47,17 @@ export function followupStartMinute(time: string | null): number {
   return Number(hours) * 60 + Number(minutes);
 }
 
+/** Minute of the last cron run of a Bangkok day (runs are every 5 minutes). */
+export const LAST_RUN_MINUTE = 23 * 60 + 55;
+
+/**
+ * Minute a follow-up is actually due to go out. The last run of the day is 23:55, so later-timed
+ * follow-ups go out at that run — up to 4 minutes early — instead of never.
+ */
+export function effectiveStartMinute(time: string | null): number {
+  return Math.min(followupStartMinute(time), LAST_RUN_MINUTE);
+}
+
 export function daysUntil(date: string, now = new Date()): number {
   return Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(bangkokDate(now) + 'T00:00:00Z')) / 86400000);
 }
@@ -62,7 +73,7 @@ export async function findCandidates(db: SupabaseClient, now = new Date()): Prom
       .eq('followup', today).order('id').range(offset, offset + 499);
     if (error) throw error;
     for (const activity of data ?? []) {
-      if (followupStartMinute(activity.followup_time) > nowMinute) continue; // not time yet — a later run sends it
+      if (effectiveStartMinute(activity.followup_time) > nowMinute) continue; // not time yet — a later run sends it
       const lead = activity.lead as unknown as { company: { name: string } | null } | null;
       const time = activity.followup_time ? activity.followup_time.slice(0, 5) : null;
       candidates.push({
@@ -100,6 +111,15 @@ export async function findCandidates(db: SupabaseClient, now = new Date()): Prom
     if (!data || data.length < 500) break;
   }
   return candidates;
+}
+
+type DeviceRow = { id: string; owner_id: string; endpoint: string; p256dh: string; auth: string };
+
+/** Split a list into pieces of at most `size` (e.g. to keep `.in()` filters short). */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const pieces: T[][] = [];
+  for (let i = 0; i < items.length; i += size) pieces.push(items.slice(i, i + size));
+  return pieces;
 }
 
 /** Use web-push for encryption/VAPID and Workers' native fetch for bounded delivery. */
@@ -152,18 +172,47 @@ export async function run(env: NotificationEnv, options: RunOptions = {}) {
   const send = options.send ?? ((sub, payload) => sendPush(env, sub, payload));
   const candidates = await findCandidates(db, options.now);
   let sent = 0, skipped = 0, failed = 0, pruned = 0;
-  for (const candidate of candidates) {
-    const { data: subscriptions, error: subError } = await db.from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth').eq('owner_id', candidate.ownerId);
-    if (subError) throw subError;
-    const valid = (subscriptions ?? []).filter(sub => isPushEndpoint(sub.endpoint));
-    if (!valid.length) { skipped++; continue; }
+
+  // Reads are batched so a run's request count does not grow with the number of candidates
+  // (a Worker invocation has a subrequest limit). Only claims and deliveries are per candidate.
+  const devices = new Map<string, DeviceRow[]>();
+  for (const owners of chunk([...new Set(candidates.map(c => c.ownerId))], 100)) {
+    const { data, error } = await db.from('push_subscriptions').select('id, owner_id, endpoint, p256dh, auth').in('owner_id', owners);
+    if (error) throw error;
+    for (const sub of data ?? []) {
+      if (!isPushEndpoint(sub.endpoint)) continue;
+      devices.set(sub.owner_id, [...(devices.get(sub.owner_id) ?? []), sub]);
+    }
+  }
+  // Owners without a device are skipped WITHOUT claiming, so the milestone waits for opt-in.
+  const reachable = candidates.filter(c => devices.has(c.ownerId));
+  skipped += candidates.length - reachable.length;
+
+  const claimed = new Set<string>();
+  for (const ids of chunk([...new Set(reachable.map(c => c.entityId))], 100)) {
+    const { data, error } = await db.from('notification_log').select('kind, entity_id').in('entity_id', ids);
+    if (error) throw error;
+    for (const row of data ?? []) claimed.add(`${row.kind}:${row.entity_id}`);
+  }
+
+  for (const candidate of reachable) {
+    const valid = devices.get(candidate.ownerId) ?? [];
+    if (!valid.length || claimed.has(`${candidate.kind}:${candidate.entityId}`)) { skipped++; continue; }
+    // Claim before sending: the unique (kind, entity_id) insert is what stops overlapping runs double-sending.
     const { data: logged, error: logError } = await db.from('notification_log')
       .upsert({ kind: candidate.kind, entity_id: candidate.entityId }, { onConflict: 'kind,entity_id', ignoreDuplicates: true }).select('id');
     if (logError) throw logError;
     if (!logged?.length) { skipped++; continue; }
-    const result = await deliver(db, send, valid, JSON.stringify({ title: candidate.title, body: candidate.body, url: '/' }));
+    const gone = new Set<string>();
+    const tracked: SendFn = async (sub, payload) => {
+      const code = await send(sub, payload);
+      if (code === 404 || code === 410) gone.add(sub.endpoint);
+      return code;
+    };
+    const result = await deliver(db, tracked, valid, JSON.stringify({ title: candidate.title, body: candidate.body, url: '/' }));
     sent += result.sent; failed += result.failed; pruned += result.pruned;
+    // A device the push service reported gone was pruned; later candidates must not retry it.
+    if (gone.size) devices.set(candidate.ownerId, valid.filter(sub => !gone.has(sub.endpoint)));
   }
   return { sent, skipped, failed, pruned };
 }

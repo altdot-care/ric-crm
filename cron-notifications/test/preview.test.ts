@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import webpush from 'web-push';
 import { handlePreview } from '../src/preview.ts';
 
-const SECRET = 'test-secret-value-0123456789';
-const env = { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '', NOTIFIER_SECRET: SECRET };
+const SECRET = 'test-secret-value-0123456789-abcdef'; // the Worker requires at least 32 characters
+const vapid = webpush.generateVAPIDKeys();
+const env = { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey, NOTIFIER_SECRET: SECRET };
 // Any database access through this client fails the test: auth checks must happen first.
 const untouched = new Proxy({}, { get() { throw new Error('database must not be touched'); } }) as unknown as SupabaseClient;
 
@@ -26,6 +28,20 @@ test('preview is closed (503) when the Worker has no NOTIFIER_SECRET', async () 
   const { NOTIFIER_SECRET: _omit, ...unset } = env;
   assert.equal((await call('/preview/dry-run', { auth: `Bearer ${SECRET}` }, unset as typeof env)).status, 503);
   assert.equal((await call('/preview/dry-run', { auth: 'Bearer ' }, { ...env, NOTIFIER_SECRET: '' })).status, 503);
+});
+
+test('a NOTIFIER_SECRET shorter than 32 characters counts as not configured (503), even with the right Bearer', async () => {
+  const short = 'x'.repeat(31);
+  assert.equal(short.length, 31);
+  assert.equal((await call('/preview/dry-run', { auth: `Bearer ${short}` }, { ...env, NOTIFIER_SECRET: short })).status, 503);
+  assert.equal((await call('/preview/test-push', { auth: `Bearer ${short}`, body: { ownerId: randomUUID() } }, { ...env, NOTIFIER_SECRET: short })).status, 503);
+  assert.equal((await call('/preview/nope', { auth: `Bearer ${short}` }, { ...env, NOTIFIER_SECRET: short })).status, 404, 'route match still comes first');
+});
+
+test('test-push answers 503 when VAPID is not configured, before touching the database', async () => {
+  const response = await call('/preview/test-push', { auth: `Bearer ${SECRET}`, body: { ownerId: randomUUID() } }, { ...env, VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'VAPID is not configured' });
 });
 
 test('missing, wrong or malformed credentials are 401 and never reach the database', async () => {
@@ -103,4 +119,30 @@ test('local database: test-push reaches only that owner, dry-run sends nothing, 
     await db.from('companies').delete().eq('owner_id', owner);
     for (const id of [owner, other]) await db.auth.admin.deleteUser(id);
   }
+});
+
+test('dry-run looks up alreadySent with distinct entity ids in chunks of 100', async () => {
+  const now = new Date('2026-09-26T03:00:00Z'); // 10:00 on Sep 26 in Bangkok
+  const followups = Array.from({ length: 120 }, (_, i) => ({ id: randomUUID(), description: `f${i}`, followup_time: null, owner_id: 'o', lead: null }));
+  // Each renewal yields two candidates (audit + expiry) with the same entity id.
+  const renewals = Array.from({ length: 30 }, () => ({ id: randomUUID(), cert: 'ISO', audit_due: '2026-10-01', expiry: '2026-10-02', owner_id: 'o', company: null }));
+  const lookups: string[][] = [];
+  const fake = {
+    from(table: string) {
+      const builder = {
+        select: () => builder, eq: () => builder, or: () => builder, order: () => builder, range: () => builder,
+        in(_column: string, ids: string[]) { lookups.push(ids); return builder; },
+        then(resolve: (value: unknown) => void) {
+          resolve({ data: table === 'activities' ? followups : table === 'renewals' ? renewals : [], error: null });
+        },
+      };
+      return builder;
+    },
+  } as unknown as SupabaseClient;
+  const response = await handlePreview(new Request('https://worker.test/preview/dry-run', { method: 'POST', headers: { Authorization: `Bearer ${SECRET}` } }), env, { db: fake, now });
+  assert.equal(response.status, 200);
+  const body = await response.json() as { candidates: unknown[] };
+  assert.equal(body.candidates.length, 180);
+  assert.deepEqual(lookups.map(ids => ids.length), [100, 50]);
+  assert.equal(new Set(lookups.flat()).size, 150, 'no id is looked up twice');
 });
