@@ -31,21 +31,6 @@ export const leadCreate = leadInput.partial({
 });
 export const leadUpdate = leadInput.partial();
 
-// Next-action log: multiple line items per lead (replaces the old single next_action /
-// next_action_due columns). "completed" is a boolean on the wire; the API route translates
-// it to a server-set completed_at timestamp rather than trusting a client-supplied one.
-export const nextActionCreate = z.object({
-  lead_id: z.uuid(),
-  description: text(200).min(1),
-  due_date: z.union([z.null(), isoDate]).optional(),
-  owner_id: z.uuid().optional(),
-});
-export const nextActionUpdate = z.object({
-  description: text(200).min(1).optional(),
-  due_date: z.union([z.null(), isoDate]).optional(),
-  completed: z.boolean().optional(),
-});
-
 export const companyInput = z.object({
   name: text(200).min(1),
   phone,
@@ -114,15 +99,24 @@ export const contactCreate = contactInput.partial({
 // invariant problems that an update-able company_id would reopen.
 export const contactUpdate = contactInput.omit({ company_id: true }).partial();
 
+// stage_change is written only by the database trigger (security definer, bypasses this
+// schema entirely) — never accept it from a client request.
+const activityType = z.enum(['call', 'email', 'meeting', 'note']);
+const activityFollowup = z.union([isoDate, z.literal('')]).optional();
+
 export const activityCreate = z.object({
   lead_id: z.uuid(),
-  // stage_change is written only by the database trigger (security definer, bypasses this
-  // schema entirely) — never accept it from a client request.
-  type: z.enum(['call', 'email', 'meeting', 'note']).default('note'),
+  type: activityType.default('note'),
   description: text(5000).min(1),
   date: isoDate.optional(),
-  followup: z.union([isoDate, z.literal('')]).optional(),
+  followup: activityFollowup,
   owner_id: z.uuid().optional(),
+});
+// An entry stays on its deal and with its owner: only what the salesperson wrote can change.
+export const activityUpdate = z.object({
+  type: activityType.optional(),
+  description: text(5000).min(1).optional(),
+  followup: activityFollowup,
 });
 
 export const renewalCreate = z.object({
@@ -130,6 +124,8 @@ export const renewalCreate = z.object({
   cert: text(100).min(1),
   audit_due: isoDate,
   expiry: isoDate,
+  // Rendered as a clickable href, so only web URLs (not javascript:, data:, etc.).
+  link: z.union([z.null(), z.url({ protocol: /^https?$/ }).max(500)]).optional(),
   owner_id: z.uuid().optional(),
 });
 export const renewalUpdate = renewalCreate.partial();

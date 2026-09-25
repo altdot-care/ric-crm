@@ -50,11 +50,11 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
   // Scope the real REST queries to a throwaway owner; no existing user's reminders are touched.
   const scoped = createClient(url, secret, { auth: { persistSession: false }, global: { fetch: (input, init) => {
     const target = new URL(String(input));
-    if (['/rest/v1/next_actions', '/rest/v1/renewals'].includes(target.pathname)) target.searchParams.set('owner_id', `eq.${owner}`);
+    if (['/rest/v1/activities', '/rest/v1/renewals'].includes(target.pathname)) target.searchParams.set('owner_id', `eq.${owner}`);
     return fetch(target, init);
   } } });
   const company = randomUUID(), lead = randomUUID();
-  const due = randomUUID(), overdue = randomUUID(), renewal = randomUUID();
+  const due = randomUUID(), past = randomUUID(), renewal = randomUUID();
   const now = new Date('2026-09-25T18:00:00Z'); // Sep 26 in Bangkok
   const keys = webpush.generateVAPIDKeys();
   const env = { SUPABASE_URL: url, SUPABASE_SECRET_KEY: secret, VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
@@ -70,18 +70,18 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
     ok(await db.auth.admin.createUser({ id: owner, email: `push-${owner}@example.test`, password: randomUUID(), email_confirm: true }));
     ok(await db.from('companies').insert({ id: company, name: 'Notification test', owner_id: owner }));
     ok(await db.from('leads').insert({ id: lead, company_id: company, owner_id: owner }));
-    ok(await db.from('next_actions').insert([
-      { id: due, lead_id: lead, description: 'due', due_date: '2026-09-26', owner_id: owner },
-      { id: overdue, lead_id: lead, description: 'overdue', due_date: '2026-09-25', owner_id: owner },
-      { id: randomUUID(), lead_id: lead, description: 'future', due_date: '2026-09-27', owner_id: owner },
-      { id: randomUUID(), lead_id: lead, description: 'done', due_date: '2026-09-26', owner_id: owner, completed_at: now.toISOString() },
-      { id: randomUUID(), lead_id: lead, description: 'no date', owner_id: owner },
+    // Only a follow-up dated today notifies: past ones have no "done" state, so they would nag forever.
+    ok(await db.from('activities').insert([
+      { id: due, lead_id: lead, type: 'call', description: 'due', followup: '2026-09-26', owner_id: owner },
+      { id: past, lead_id: lead, type: 'call', description: 'past', followup: '2026-09-25', owner_id: owner },
+      { id: randomUUID(), lead_id: lead, type: 'call', description: 'future', followup: '2026-09-27', owner_id: owner },
+      { id: randomUUID(), lead_id: lead, type: 'note', description: 'no follow-up', owner_id: owner },
     ]));
     ok(await db.from('renewals').insert({ id: renewal, company_id: company, cert: 'ISO 9001', audit_due: '2026-10-26', expiry: '2026-09-25', owner_id: owner }));
     const candidates = await findCandidates(scoped, now);
-    assert.deepEqual(candidates.map(c => c.kind).sort(), ['next_action_due', 'next_action_overdue', 'renewal_audit_due', 'renewal_expiry_overdue']);
+    assert.deepEqual(candidates.map(c => c.kind).sort(), ['followup_due', 'renewal_audit_due', 'renewal_expiry_overdue']);
     await run(env, { client: scoped, send, now });
-    const logs = () => db.from('notification_log').select('*').in('entity_id', [due, overdue, renewal]);
+    const logs = () => db.from('notification_log').select('*').in('entity_id', [due, past, renewal]);
     assert.equal((await logs()).data?.length, 0, 'no devices must not consume the milestone');
 
     const ecdh = createECDH('prime256v1'); ecdh.generateKeys();
@@ -91,11 +91,11 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
       { id: dead, owner_id: owner, endpoint: `https://fcm.googleapis.com/${owner}/dead`, p256dh, auth },
     ]));
     await Promise.all([run(env, { client: scoped, send, now }), run(env, { client: scoped, send, now })]);
-    assert.equal(sent.length, 4, 'one send per milestone even for concurrent jobs');
-    assert.equal((await logs()).data?.length, 4);
+    assert.equal(sent.length, 3, 'one send per milestone even for concurrent jobs');
+    assert.equal((await logs()).data?.length, 3);
     assert.equal((await db.from('push_subscriptions').select('*').eq('id', dead)).data?.length, 0);
     await run(env, { client: scoped, send, now });
-    assert.equal(sent.length, 4, 'rerun must not resend');
+    assert.equal(sent.length, 3, 'rerun must not resend');
     assert.ok(sent.every(p => JSON.parse(p).url === '/'));
 
     // Independently cross the other renewal milestones; temporary failures stay claimed.
@@ -103,11 +103,12 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
     const failing = async () => 503;
     const result = await run(env, { client: scoped, send: failing, now });
     assert.equal(result.failed, 2);
-    assert.equal((await logs()).data?.length, 6);
+    assert.equal((await logs()).data?.length, 5);
     await run(env, { client: scoped, send, now });
-    assert.equal(sent.length, 4, 'no retries after failed attempt, as specified');
+    assert.equal(sent.length, 3, 'no retries after failed attempt, as specified');
   } finally {
-    ok(await db.from('notification_log').delete().in('entity_id', [due, overdue, renewal]));
+    ok(await db.from('notification_log').delete().in('entity_id', [due, past, renewal]));
+    ok(await db.from('activities').delete().eq('owner_id', owner));
     ok(await db.from('renewals').delete().eq('owner_id', owner));
     ok(await db.from('leads').delete().eq('owner_id', owner));
     ok(await db.from('companies').delete().eq('owner_id', owner));

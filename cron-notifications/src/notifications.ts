@@ -37,17 +37,16 @@ export async function findCandidates(db: SupabaseClient, now = new Date()): Prom
   const today = bangkokDate(now);
   // Paginate explicitly: Supabase normally limits a response to 1000 rows.
   for (let offset = 0; ; offset += 500) {
-    const { data, error } = await db.from('next_actions')
-      .select('id, description, due_date, owner_id, lead:leads!lead_id(company:companies!company_id(name))')
-      .is('completed_at', null).lte('due_date', today).order('id').range(offset, offset + 499);
+    const { data, error } = await db.from('activities')
+      .select('id, description, owner_id, lead:leads!lead_id(company:companies!company_id(name))')
+      .eq('followup', today).order('id').range(offset, offset + 499);
     if (error) throw error;
-    for (const action of data ?? []) {
-      const lead = action.lead as unknown as { company: { name: string } | null } | null;
-      const due = action.due_date === today;
+    for (const activity of data ?? []) {
+      const lead = activity.lead as unknown as { company: { name: string } | null } | null;
       candidates.push({
-        kind: due ? 'next_action_due' : 'next_action_overdue', entityId: action.id, ownerId: action.owner_id,
-        title: due ? 'งานถัดไปครบกำหนดวันนี้' : 'งานถัดไปเลยกำหนดแล้ว',
-        body: `${lead?.company?.name || ''}: ${action.description}`,
+        kind: 'followup_due', entityId: activity.id, ownerId: activity.owner_id,
+        title: 'ถึงวันนัดติดตามวันนี้',
+        body: `${lead?.company?.name || ''}: ${activity.description}`,
       });
     }
     if (!data || data.length < 500) break;

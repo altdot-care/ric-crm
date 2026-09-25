@@ -4,7 +4,7 @@ import { activityCreate, uuidParam } from '@/lib/schemas';
 
 export const prerender = false;
 
-const COLUMNS = '*, lead:leads!lead_id(company:companies!company_id(name)), owner:profiles!owner_id(full_name)';
+export const COLUMNS = '*, lead:leads!lead_id(company:companies!company_id(name)), owner:profiles!owner_id(full_name)';
 
 export const GET: APIRoute = async ({ locals, url }) => {
   let query = locals.supabase.from('activities').select(COLUMNS).order('created_at', { ascending: false });

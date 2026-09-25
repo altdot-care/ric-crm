@@ -169,6 +169,7 @@ const CERT_OPTIONS = [
       <button type="button" onclick="switchCompanyTab('info')" id="company-tab-btn-info" class="px-3 py-2.5 text-sm font-medium border-b-2 border-ric-red text-ric-red">ข้อมูล</button>
       <button type="button" onclick="switchCompanyTab('contacts')" id="company-tab-btn-contacts" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black">ผู้ติดต่อ</button>
       <button type="button" onclick="switchCompanyTab('deals')" id="company-tab-btn-deals" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black">ดีล</button>
+      <button type="button" onclick="switchCompanyTab('renewals')" id="company-tab-btn-renewals" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black">ใบรับรอง</button>
     </div>
 
     <div id="company-tab-info">
@@ -265,6 +266,14 @@ const CERT_OPTIONS = [
     <div id="company-tab-deals" class="hidden">
       <h2 class="font-semibold text-sm mb-3">ดีลของบริษัทนี้</h2>
       <div id="company-deals-list" class="bg-white rounded-xl shadow-xs border border-gray-100 divide-y divide-gray-50"></div>
+    </div>
+
+    <div id="company-tab-renewals" class="hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-sm">ใบรับรองของบริษัทนี้</h2>
+        <button onclick="openRenewalModal(null, currentCompanyId)" class="btn-primary text-xs px-3 py-1.5">+ เพิ่มใบรับรอง</button>
+      </div>
+      <div id="company-renewals-list" class="space-y-3"></div>
     </div>
   </div>
 
@@ -379,15 +388,6 @@ const CERT_OPTIONS = [
           <label class="field-label">ลิงก์ใบเสนอราคา</label>
           <input class="field-input" id="lead-quote-link" type="url" placeholder="https://..." />
         </div>
-        <div class="col-span-2 hidden" id="lead-next-actions-section">
-          <label class="field-label">งานถัดไป</label>
-          <div id="lead-next-actions-list" class="space-y-1.5 mb-2"></div>
-          <div class="flex gap-2">
-            <input class="field-input flex-1" id="next-action-new-description" placeholder="เช่น ส่งใบเสนอราคา, โทรติดตาม" onkeydown="if(event.key==='Enter'){event.preventDefault();addNextAction();}" />
-            <input class="field-input w-36" id="next-action-new-due" type="date" onkeydown="if(event.key==='Enter'){event.preventDefault();addNextAction();}" />
-            <button type="button" id="next-action-add-btn" onclick="addNextAction()" class="btn-secondary shrink-0">+ เพิ่ม</button>
-          </div>
-        </div>
         <div data-admin-only class="hidden">
           <label class="field-label">ผู้รับผิดชอบ</label>
           <select class="field-input" data-owner-select id="lead-owner"></select>
@@ -408,7 +408,8 @@ const CERT_OPTIONS = [
     </div>
     <div id="lead-tab-log" class="hidden p-5">
       <div id="lead-log-list" class="space-y-3 mb-4 max-h-64 overflow-y-auto"></div>
-      <form onsubmit="saveLeadActivity(event)" class="border-t border-gray-100 pt-4 space-y-3">
+      <form id="lead-act-form" onsubmit="saveLeadActivity(event)" class="border-t border-gray-100 pt-4 space-y-3">
+        <p id="lead-act-editing" class="hidden text-xs text-amber-600">กำลังแก้ไขบันทึก</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <select class="field-input" id="lead-act-type">
             <option value="call">📞 โทรศัพท์</option>
@@ -419,7 +420,10 @@ const CERT_OPTIONS = [
           <input class="field-input" id="lead-act-followup" type="date" />
         </div>
         <textarea class="field-input h-16 resize-none" id="lead-act-description" required placeholder="บันทึกใหม่..."></textarea>
-        <button type="submit" class="btn-primary w-full">บันทึก</button>
+        <div class="flex gap-2">
+          <button type="button" id="lead-act-cancel" onclick="cancelLeadActivityEdit()" class="btn-secondary hidden">ยกเลิก</button>
+          <button type="submit" id="lead-act-submit" class="btn-primary flex-1">บันทึก</button>
+        </div>
       </form>
     </div>
   </div>
@@ -542,6 +546,10 @@ const CERT_OPTIONS = [
           <label class="field-label">วันหมดอายุ *</label>
           <input class="field-input" id="ren-expiry" type="date" required />
         </div>
+        <div class="col-span-2">
+          <label class="field-label">ลิงก์</label>
+          <input class="field-input" id="ren-link" type="url" maxlength="500" placeholder="https://..." />
+        </div>
         <div class="col-span-2 hidden" data-admin-only>
           <label class="field-label">เจ้าหน้าที่รับผิดชอบ</label>
           <select class="field-input" data-owner-select id="ren-owner"></select>
@@ -653,6 +661,7 @@ const CERT_OPTIONS = [
 </div>
 
 <script is:inline src="/push-notifications.js"></script>
+<script is:inline src="/company-renewals.js"></script>
 <script is:inline>
 // ── State ──────────────────────────────────────────────────────────────────
 let leads = [];
@@ -660,7 +669,6 @@ let activities = [];
 let renewals = [];
 let companies = [];
 let contacts = [];
-let nextActions = [];
 let currentCompanyId = null;
 let companyEditMode = false;
 let currentLeadId = null;
@@ -733,13 +741,12 @@ function setupOwnerPickers() {
 
 // ── Data loading ───────────────────────────────────────────────────────────
 async function loadAll() {
-  const [l, a, r, co, ct, na, who] = await Promise.all([
+  const [l, a, r, co, ct, who] = await Promise.all([
     api('/api/leads'),
     api('/api/activities'),
     api('/api/renewals'),
     api('/api/companies'),
     api('/api/contacts'),
-    api('/api/next-actions'),
     api('/api/me'),
   ]);
   me = who.me;
@@ -751,7 +758,6 @@ async function loadAll() {
   renewals = r;
   companies = co;
   contacts = ct;
-  nextActions = na;
   renderAll();
 }
 
@@ -821,6 +827,7 @@ function renderAll() {
   if (currentView === 'renewals') renderRenewals();
   if (currentView === 'activities') renderActivities();
   if (currentView === 'companies') renderCompanies();
+  if (currentCompanyId) renderCompanyRenewals();
 }
 
 // Shared by the "กิจกรรม" feed (Phase 2) and the company-detail deals list: jump straight to
@@ -887,24 +894,6 @@ function renderPipeline() {
 }
 
 function renderLeadCard(l) {
-  // Pick the open (not completed) next_action with the nearest due date — nulls-due-date sort
-  // last, since an undated item is less urgent than any dated one.
-  const openActions = nextActions
-    .filter(n => n.lead_id === l.id && !n.completed_at)
-    .sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0;
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return new Date(a.due_date) - new Date(b.due_date);
-    });
-  const picked = openActions[0];
-  const overdue = picked?.due_date && daysUntil(picked.due_date) < 0;
-  const dueLabel = picked?.due_date
-    ? new Date(picked.due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-    : '';
-  const nextActionHtml = picked
-    ? `<p class="text-[11px] mt-2 px-2 py-1 rounded-md ${overdue ? 'bg-red-50 text-ric-red' : 'bg-amber-50 text-amber-700'}">🔔 ${esc(picked.description)}${dueLabel ? ` — ${overdue ? 'เลยกำหนด' : 'ครบกำหนด'} ${dueLabel}` : ''}</p>`
-    : '';
   return `<div class="lead-card" draggable="${canEdit(l)}"
     data-id="${esc(l.id)}"
     ondragstart="onDragStart(event, '${esc(l.id)}')"
@@ -916,7 +905,6 @@ function renderLeadCard(l) {
       <span class="text-xs text-ric-gray">${esc(l.primary_contact?.full_name) || '—'}${l.primary_contact?.position ? ` (${esc(l.primary_contact.position)})` : ''}</span>
       <span class="text-xs font-mono font-medium">${(l.value || 0).toLocaleString('th-TH')} ฿</span>
     </div>
-    ${nextActionHtml}
     ${l.owner?.full_name ? `<p class="text-[10px] text-ric-gray/60 mt-1.5">👤 ${esc(l.owner.full_name)}</p>` : ''}
   </div>`;
 }
@@ -996,29 +984,43 @@ function renewalTooltip(days, kind) {
     : `ใบรับรองจะหมดอายุในอีก ${days} วัน ต้องต่ออายุหลังผ่านการตรวจประเมิน`;
 }
 
+// One certificate row, shared by the ใบรับรอง page and a company's ใบรับรอง tab. The tab already
+// sits inside one company, so it hides the redundant company name.
+function renewalRowHtml(r, { showCompany = true } = {}) {
+  return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-50" onclick="openRenewalModal('${esc(r.id)}')">
+    <div class="flex-1 min-w-0 break-words w-full">
+      ${showCompany
+        ? `<p class="font-medium text-sm">${esc(r.company?.name) || 'ไม่ระบุบริษัท'}</p>
+      <p class="text-xs text-ric-gray mt-0.5">${esc(r.cert)}</p>`
+        : `<p class="font-medium text-sm">${esc(r.cert)}</p>`}
+      ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}
+      ${/^https?:\/\//i.test(r.link || '') ? `<a href="${esc(r.link)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="inline-block text-xs text-ric-red hover:underline mt-1 break-all">🔗 ลิงก์</a>` : ''}
+    </div>
+    <div class="flex flex-col gap-1 shrink-0">
+      <div class="flex items-center gap-2" title="${esc(renewalTooltip(daysUntil(r.audit_due), 'audit'))}">
+        <span class="text-[11px] text-ric-gray w-24 text-right shrink-0">ครบกำหนดตรวจ</span>
+        ${urgencyBadge(daysUntil(r.audit_due))}
+      </div>
+      <div class="flex items-center gap-2" title="${esc(renewalTooltip(daysUntil(r.expiry), 'expiry'))}">
+        <span class="text-[11px] text-ric-gray w-24 text-right shrink-0">หมดอายุ</span>
+        ${urgencyBadge(daysUntil(r.expiry))}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderRenewals() {
   const sorted = [...renewals].sort((a, b) => new Date(a.audit_due) - new Date(b.audit_due));
   document.getElementById('renewals-list').innerHTML = sorted.length
-    ? sorted.map(r => {
-        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-50" onclick="openRenewalModal('${esc(r.id)}')">
-          <div class="flex-1 min-w-0 break-words w-full">
-            <p class="font-medium text-sm">${esc(r.company?.name) || 'ไม่ระบุบริษัท'}</p>
-            <p class="text-xs text-ric-gray mt-0.5">${esc(r.cert)}</p>
-            ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}
-          </div>
-          <div class="flex flex-col gap-1 shrink-0">
-            <div class="flex items-center gap-2" title="${esc(renewalTooltip(daysUntil(r.audit_due), 'audit'))}">
-              <span class="text-[11px] text-ric-gray w-24 text-right shrink-0">ครบกำหนดตรวจ</span>
-              ${urgencyBadge(daysUntil(r.audit_due))}
-            </div>
-            <div class="flex items-center gap-2" title="${esc(renewalTooltip(daysUntil(r.expiry), 'expiry'))}">
-              <span class="text-[11px] text-ric-gray w-24 text-right shrink-0">หมดอายุ</span>
-              ${urgencyBadge(daysUntil(r.expiry))}
-            </div>
-          </div>
-        </div>`;
-      }).join('')
+    ? sorted.map(r => renewalRowHtml(r)).join('')
     : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีใบรับรอง · <button onclick="openRenewalModal()" class="text-ric-red hover:underline">เพิ่มใบรับรอง</button></div>';
+}
+
+function renderCompanyRenewals() {
+  const list = window.companyRenewals(renewals, currentCompanyId);
+  document.getElementById('company-renewals-list').innerHTML = list.length
+    ? list.map(r => renewalRowHtml(r, { showCompany: false })).join('')
+    : '<div class="bg-white rounded-xl p-6 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีใบรับรองของบริษัทนี้</div>';
 }
 
 // ── Activities ────────────────────────────────────────────────────────────
@@ -1122,64 +1124,6 @@ function switchLeadTab(tab) {
   if (tab === 'log') renderLeadLog();
 }
 
-function renderLeadNextActions() {
-  const items = nextActions
-    .filter(n => n.lead_id === currentLeadId)
-    .sort((a, b) => {
-      if (!!a.completed_at !== !!b.completed_at) return a.completed_at ? 1 : -1;
-      if (a.completed_at && b.completed_at) return new Date(b.completed_at) - new Date(a.completed_at);
-      if (!a.due_date && !b.due_date) return 0;
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return new Date(a.due_date) - new Date(b.due_date);
-    });
-  document.getElementById('lead-next-actions-list').innerHTML = items.length
-    ? items.map(n => {
-        const dueLabel = n.due_date
-          ? new Date(n.due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-          : '';
-        return `<label class="flex items-center gap-2 text-sm ${n.completed_at ? 'text-ric-gray line-through' : ''}">
-          <input type="checkbox" ${n.completed_at ? 'checked' : ''} onchange="toggleNextActionDone('${esc(n.id)}', this.checked)" class="rounded-sm border-gray-300 text-ric-red focus:ring-ric-red" />
-          <span class="flex-1">${esc(n.description)}</span>
-          ${dueLabel ? `<span class="text-xs text-ric-gray shrink-0">${dueLabel}</span>` : ''}
-        </label>`;
-      }).join('')
-    : '<p class="text-xs text-ric-gray">ยังไม่มีงานถัดไป</p>';
-}
-
-async function addNextAction() {
-  const description = document.getElementById('next-action-new-description').value.trim();
-  if (!description) return;
-  const data = {
-    lead_id: currentLeadId,
-    description,
-    due_date: nullableInput('next-action-new-due'),
-  };
-  try {
-    await api('/api/next-actions', { method: 'POST', body: JSON.stringify(data) });
-    nextActions = await api('/api/next-actions');
-  } catch (err) {
-    alert('เพิ่มไม่สำเร็จ: ' + err.message);
-    return;
-  }
-  document.getElementById('next-action-new-description').value = '';
-  document.getElementById('next-action-new-due').value = '';
-  renderLeadNextActions();
-  renderAll();
-}
-
-async function toggleNextActionDone(id, checked) {
-  try {
-    await api(`/api/next-actions/${id}`, { method: 'PUT', body: JSON.stringify({ completed: checked }) });
-    nextActions = await api('/api/next-actions');
-  } catch (err) {
-    alert('บันทึกไม่สำเร็จ: ' + err.message);
-    return;
-  }
-  renderLeadNextActions();
-  renderAll();
-}
-
 function renderLeadLog() {
   const entries = activities
     .filter(a => a.lead_id === currentLeadId)
@@ -1194,10 +1138,17 @@ function renderLeadLog() {
             <span>เปลี่ยนสถานะ: ${esc(oldLabel)} → ${esc(newLabel)}</span>
           </div>`;
         }
-        return `<div class="text-sm border-b border-gray-50 pb-2">
+        const actions = canEdit(a)
+          ? `<span class="ml-auto flex gap-1">
+              <button type="button" onclick="editLeadActivity('${esc(a.id)}')" class="min-h-11 px-2 hover:text-ric-black" aria-label="แก้ไขบันทึก">แก้ไข</button>
+              <button type="button" onclick="deleteLeadActivity('${esc(a.id)}')" class="min-h-11 px-2 hover:text-ric-red" aria-label="ลบบันทึก">ลบ</button>
+            </span>`
+          : '';
+        return `<div class="text-sm border-b border-gray-50 pb-2 ${a.id === editingActivityId ? 'bg-amber-50 rounded-sm px-2' : ''}">
           <div class="flex items-center gap-2 text-xs text-ric-gray mb-1">
             <span class="bg-gray-100 px-2 py-0.5 rounded-sm">${esc(ACT_TYPE_LABEL[a.type] || a.type)}</span>
             <span class="font-mono">${esc(a.date)}</span>
+            ${actions}
           </div>
           <p>${esc(a.description)}</p>
           ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
@@ -1206,23 +1157,68 @@ function renderLeadLog() {
     : '<p class="text-sm text-ric-gray text-center py-6">ยังไม่มีบันทึก</p>';
 }
 
+// The log entry currently loaded into the form below the list, or null when adding a new one.
+let editingActivityId = null;
+
 async function saveLeadActivity(e) {
   e.preventDefault();
   const data = {
-    lead_id: currentLeadId,
     type: document.getElementById('lead-act-type').value,
     description: document.getElementById('lead-act-description').value,
     followup: document.getElementById('lead-act-followup').value,
   };
   try {
-    activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify(data) }));
+    if (editingActivityId) {
+      const updated = await api(`/api/activities/${editingActivityId}`, { method: 'PUT', body: JSON.stringify(data) });
+      activities = activities.map(a => a.id === updated.id ? updated : a);
+    } else {
+      activities.unshift(await api('/api/activities', { method: 'POST', body: JSON.stringify({ ...data, lead_id: currentLeadId }) }));
+    }
   } catch (err) {
     alert('บันทึกไม่สำเร็จ: ' + err.message);
     return;
   }
-  document.getElementById('lead-act-description').value = '';
-  document.getElementById('lead-act-followup').value = '';
+  cancelLeadActivityEdit();
   renderLeadLog();
+  renderAll();
+}
+
+function editLeadActivity(id) {
+  const entry = activities.find(a => a.id === id);
+  if (!entry) return;
+  editingActivityId = id;
+  document.getElementById('lead-act-type').value = entry.type;
+  document.getElementById('lead-act-followup').value = entry.followup || '';
+  document.getElementById('lead-act-description').value = entry.description;
+  document.getElementById('lead-act-editing').classList.remove('hidden');
+  document.getElementById('lead-act-cancel').classList.remove('hidden');
+  document.getElementById('lead-act-submit').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('lead-act-description').focus();
+  renderLeadLog();
+}
+
+// Also the "reset the form" step after a save, and when a different deal is opened.
+function cancelLeadActivityEdit() {
+  editingActivityId = null;
+  document.getElementById('lead-act-form').reset();
+  document.getElementById('lead-act-editing').classList.add('hidden');
+  document.getElementById('lead-act-cancel').classList.add('hidden');
+  document.getElementById('lead-act-submit').textContent = 'บันทึก';
+  renderLeadLog();
+}
+
+async function deleteLeadActivity(id) {
+  if (!confirm('ลบบันทึกนี้ใช่ไหม?')) return;
+  try {
+    await api(`/api/activities/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert('ลบไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  activities = activities.filter(a => a.id !== id);
+  if (editingActivityId === id) cancelLeadActivityEdit();
+  renderLeadLog();
+  renderAll();
 }
 
 function onStageChange() {
@@ -1353,9 +1349,11 @@ function switchCompanyTab(tab) {
   document.getElementById('company-tab-info').classList.toggle('hidden', tab !== 'info');
   document.getElementById('company-tab-contacts').classList.toggle('hidden', tab !== 'contacts');
   document.getElementById('company-tab-deals').classList.toggle('hidden', tab !== 'deals');
+  document.getElementById('company-tab-renewals').classList.toggle('hidden', tab !== 'renewals');
   setTabButtonActive('company-tab-btn-info', tab === 'info');
   setTabButtonActive('company-tab-btn-contacts', tab === 'contacts');
   setTabButtonActive('company-tab-btn-deals', tab === 'deals');
+  setTabButtonActive('company-tab-btn-renewals', tab === 'renewals');
 }
 
 function enableCompanyEdit() {
@@ -1443,6 +1441,8 @@ function renderCompanyDetail() {
         </div>`;
       }).join('')
     : '<p class="text-sm text-ric-gray px-4 py-3">ยังไม่มีดีลของบริษัทนี้</p>';
+
+  renderCompanyRenewals();
 }
 
 async function saveCompany(e) {
@@ -1600,7 +1600,7 @@ async function openLeadModal(id = null) {
   currentLeadId = id;
   switchLeadTab('info');
   document.getElementById('lead-tab-btn-log').classList.toggle('hidden', !id);
-  document.getElementById('lead-next-actions-section').classList.toggle('hidden', !id);
+  cancelLeadActivityEdit();
 
   if (id) {
     const lead = leads.find(l => l.id === id);
@@ -1619,7 +1619,6 @@ async function openLeadModal(id = null) {
     deleteBtn.classList.toggle('hidden', !isRoot());
     editable = canEdit(lead);
     if (!editable) document.getElementById('lead-modal-title').textContent = 'ดูลีด (แก้ไขได้เฉพาะเจ้าของ)';
-    renderLeadNextActions();
   } else {
     document.getElementById('lead-modal-title').textContent = 'เพิ่มลีดใหม่';
     document.getElementById('lead-form').reset();
@@ -1633,7 +1632,6 @@ async function openLeadModal(id = null) {
   document.querySelectorAll('#lead-form input:not([type=hidden]), #lead-form select, #lead-form textarea')
     .forEach(el => { el.disabled = !editable; });
   document.getElementById('lead-submit-btn').classList.toggle('hidden', !editable);
-  document.getElementById('next-action-add-btn').classList.toggle('hidden', !editable);
 
   modal.classList.remove('hidden');
 }
@@ -1733,13 +1731,11 @@ async function deleteLead() {
     alert('ลบไม่สำเร็จ: ' + err.message);
     return;
   }
-  // Deleting a lead cascade-deletes its activities and next_actions too — refetch all three
-  // rather than filtering `leads` locally, so the activity feed and next-action list don't
-  // keep showing rows for a lead that's gone.
-  [leads, activities, nextActions] = await Promise.all([
+  // Deleting a lead cascade-deletes its activities too — refetch both rather than filtering
+  // `leads` locally, so the activity feed doesn't keep showing rows for a lead that's gone.
+  [leads, activities] = await Promise.all([
     api('/api/leads'),
     api('/api/activities'),
-    api('/api/next-actions'),
   ]);
   closeLeadModal();
   renderAll();
@@ -1760,7 +1756,7 @@ function onRenewalCompanySearchInput() {
   document.getElementById('ren-company-id').value = match ? match.id : '';
 }
 
-function openRenewalModal(id = null) {
+function openRenewalModal(id = null, companyId = null) {
   const deleteBtn = document.getElementById('ren-delete-btn');
   let editable = true;
   document.getElementById('ren-id').value = id || '';
@@ -1775,6 +1771,7 @@ function openRenewalModal(id = null) {
     document.getElementById('ren-cert').value = renewal.cert || '';
     document.getElementById('ren-audit-due').value = renewal.audit_due || '';
     document.getElementById('ren-expiry').value = renewal.expiry || '';
+    document.getElementById('ren-link').value = renewal.link || '';
     document.getElementById('ren-owner').value = renewal.owner_id;
     deleteBtn.classList.toggle('hidden', !isRoot());
     editable = canEdit(renewal);
@@ -1784,6 +1781,11 @@ function openRenewalModal(id = null) {
     document.getElementById('modal-renewal').querySelector('form').reset();
     document.getElementById('ren-id').value = '';
     document.getElementById('ren-company-id').value = '';
+    const preset = companies.find(co => co.id === companyId);
+    if (preset) {
+      document.getElementById('ren-company-search').value = preset.name;
+      document.getElementById('ren-company-id').value = preset.id;
+    }
     document.getElementById('ren-owner').value = me.id;
     deleteBtn.classList.add('hidden');
   }
@@ -1826,6 +1828,7 @@ async function saveRenewal(e) {
     cert: document.getElementById('ren-cert').value,
     audit_due: document.getElementById('ren-audit-due').value,
     expiry: document.getElementById('ren-expiry').value,
+    link: nullableInput('ren-link'),
     ...ownerField('ren-owner'),
   };
   try {

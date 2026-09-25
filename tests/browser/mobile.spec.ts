@@ -113,3 +113,62 @@ test('PWA manifest, icons and worker are served without login', async ({ playwri
   }
   await guest.dispose();
 });
+
+test('company detail certificates tab lists only that company and preselects it when adding', async ({ page }) => {
+  await page.evaluate(id => (window as any).openCompanyDetail(id), company);
+  await page.locator('#company-tab-btn-renewals').click();
+  await expect(page.locator('#company-tab-renewals')).toBeVisible();
+  await expect(page.locator('#company-renewals-list')).toContainText('ISO 9001');
+  await page.getByRole('button', { name: '+ เพิ่มใบรับรอง' }).click();
+  await expect(page.locator('#ren-company-id')).toHaveValue(company);
+  await expect(page.locator('#ren-company-search')).toHaveValue(/บริษัททดสอบ/);
+});
+
+test('certificate link is saved from the form and shown as a safe external link', async ({ page }) => {
+  await page.evaluate(id => (window as any).openCompanyDetail(id), company);
+  await page.locator('#company-tab-btn-renewals').click();
+  await page.locator('#company-renewals-list > div').first().click();
+  await page.locator('#ren-link').fill('https://example.test/cert.pdf');
+  await page.locator('#ren-save-btn').click();
+  const link = page.locator('#company-renewals-list a', { hasText: 'ลิงก์' });
+  await expect(link).toHaveAttribute('href', 'https://example.test/cert.pdf');
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page.locator('#modal-renewal')).toBeHidden();
+  expect((await db.from('renewals').select('link').eq('company_id', company)).data?.map(r => r.link)).toContain('https://example.test/cert.pdf');
+  await page.locator('#company-renewals-list > div').first().click();
+  await page.locator('#ren-link').fill('');
+  await page.locator('#ren-save-btn').click();
+  await expect(page.locator('#company-renewals-list a')).toHaveCount(0);
+});
+
+test('deal Log tab edits and deletes own entries; no next-action section; stage changes are read-only', async ({ page }) => {
+  const entry = randomUUID();
+  expect((await db.from('activities').insert({ id: entry, lead_id: lead, type: 'note', description: 'บันทึกเดิม', owner_id: userId })).error).toBeNull();
+  expect((await db.from('activities').insert({ lead_id: lead, type: 'stage_change', description: 'new → contacted', old_stage: 'new', new_stage: 'contacted', owner_id: userId })).error).toBeNull();
+  await page.reload();
+  await expect(page.locator('#me-role')).toHaveText('sales');
+  await page.evaluate(id => (window as any).openLeadModal(id), lead);
+  await expect(page.locator('#lead-next-actions-section')).toHaveCount(0);
+  await page.locator('#lead-tab-btn-log').click();
+
+  // Only the two normal entries' buttons exist: one entry (edit+delete), none for the stage change.
+  await expect(page.getByRole('button', { name: 'แก้ไขบันทึก' })).toHaveCount(1);
+  await page.getByRole('button', { name: 'แก้ไขบันทึก' }).click();
+  await expect(page.locator('#lead-act-description')).toHaveValue('บันทึกเดิม');
+  await expect(page.locator('#lead-act-submit')).toHaveText('บันทึกการแก้ไข');
+  await page.locator('#lead-act-description').fill('บันทึกที่แก้แล้ว');
+  await page.locator('#lead-act-followup').fill('2026-12-25');
+  await page.locator('#lead-act-submit').click();
+  await expect(page.locator('#lead-log-list')).toContainText('บันทึกที่แก้แล้ว');
+  await expect(page.locator('#lead-log-list')).not.toContainText('บันทึกเดิม');
+  await expect(page.locator('#lead-act-submit')).toHaveText('บันทึก');
+  const saved = (await db.from('activities').select('description, followup').eq('id', entry).single()).data;
+  expect(saved).toEqual({ description: 'บันทึกที่แก้แล้ว', followup: '2026-12-25' });
+
+  page.once('dialog', d => d.accept());
+  await page.getByRole('button', { name: 'ลบบันทึก' }).click();
+  await expect(page.locator('#lead-log-list')).not.toContainText('บันทึกที่แก้แล้ว');
+  expect((await db.from('activities').select('id').eq('id', entry)).data).toEqual([]);
+  await expect(page.locator('#lead-log-list')).toContainText('เปลี่ยนสถานะ');
+});
