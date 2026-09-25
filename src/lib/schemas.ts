@@ -17,8 +17,6 @@ export const leadInput = z.object({
   value: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   notes: text(5000),
   quote_link: optionalUrl(500),
-  next_action: optionalText(200),
-  next_action_due: z.union([z.null(), isoDate]).optional(),
   owner_id: z.uuid(),
 });
 export const leadCreate = leadInput.partial({
@@ -28,11 +26,24 @@ export const leadCreate = leadInput.partial({
   value: true,
   notes: true,
   quote_link: true,
-  next_action: true,
-  next_action_due: true,
   owner_id: true,
 });
 export const leadUpdate = leadInput.partial();
+
+// Next-action log: multiple line items per lead (replaces the old single next_action /
+// next_action_due columns). "completed" is a boolean on the wire; the API route translates
+// it to a server-set completed_at timestamp rather than trusting a client-supplied one.
+export const nextActionCreate = z.object({
+  lead_id: z.uuid(),
+  description: text(200).min(1),
+  due_date: z.union([z.null(), isoDate]).optional(),
+  owner_id: z.uuid().optional(),
+});
+export const nextActionUpdate = z.object({
+  description: text(200).min(1).optional(),
+  due_date: z.union([z.null(), isoDate]).optional(),
+  completed: z.boolean().optional(),
+});
 
 export const companyInput = z.object({
   name: text(200).min(1),
