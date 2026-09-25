@@ -598,6 +598,28 @@ const CERT_OPTIONS = [
   </div>
 </div>
 
+<div id="modal-delete-company" class="modal-overlay hidden" onclick="if(event.target===this)closeDeleteCompanyModal()">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h3 class="font-semibold text-ric-red">ลบบริษัทนี้</h3>
+      <button onclick="closeDeleteCompanyModal()" class="text-ric-gray hover:text-ric-black">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-sm text-ric-gray">การลบจะลบผู้ติดต่อทั้งหมดของบริษัทนี้ด้วย และไม่สามารถย้อนกลับได้ พิมพ์ชื่อบริษัทด้านล่างเพื่อยืนยัน:</p>
+      <p class="text-sm font-medium" id="delete-company-name">—</p>
+      <div>
+        <input class="field-input" id="delete-company-confirm-input" oninput="onDeleteCompanyConfirmInput()" autocomplete="off" placeholder="พิมพ์ชื่อบริษัทให้ตรงกัน" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeDeleteCompanyModal()" class="btn-secondary">ยกเลิก</button>
+        <button type="button" id="delete-company-confirm-btn" onclick="confirmDeleteCompany()" class="btn-danger" disabled>ลบบริษัท</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script is:inline>
 // ── State ──────────────────────────────────────────────────────────────────
 let leads = [];
@@ -1190,6 +1212,14 @@ function formatCompanyAddress(company) {
   return [line1, line2].filter(Boolean).join(', ');
 }
 
+// Sets a read-only view field's text, flagging an empty value as "รอใส่" in red instead of a
+// blank dash — makes missing data something to notice, not something to miss.
+function setViewField(id, value) {
+  const el = document.getElementById(id);
+  el.textContent = value || 'รอใส่';
+  el.classList.toggle('text-ric-red', !value);
+}
+
 function renderCompanyDetail() {
   const company = companies.find(c => c.id === currentCompanyId);
   if (!company) { closeCompanyDetail(); return; }
@@ -1208,12 +1238,12 @@ function renderCompanyDetail() {
   setDistrictProvince('company', company.district || '', company.province || '');
 
   document.getElementById('company-view-name').textContent = company.name || '—';
-  document.getElementById('company-view-email').textContent = company.email || '—';
-  document.getElementById('company-view-phone').textContent = company.phone || '—';
-  document.getElementById('company-view-website').textContent = company.website || '—';
-  document.getElementById('company-view-tax-id').textContent = company.tax_id || '—';
-  document.getElementById('company-view-address').textContent = formatCompanyAddress(company) || '—';
-  document.getElementById('company-view-notes').textContent = company.notes || '—';
+  setViewField('company-view-email', company.email);
+  setViewField('company-view-phone', company.phone);
+  setViewField('company-view-website', company.website);
+  setViewField('company-view-tax-id', company.tax_id);
+  setViewField('company-view-address', formatCompanyAddress(company));
+  setViewField('company-view-notes', company.notes);
 
   const mayEdit = canEdit(company);
   const editing = mayEdit && companyEditMode;
@@ -1278,9 +1308,27 @@ async function saveCompany(e) {
   renderCompanyDetail();
 }
 
-async function deleteCompany() {
-  const id = document.getElementById('company-edit-id').value;
-  if (!id || !confirm('ลบบริษัทนี้ใช่ไหม? ผู้ติดต่อทั้งหมดของบริษัทนี้จะถูกลบด้วย')) return;
+function deleteCompany() {
+  const company = companies.find(c => c.id === currentCompanyId);
+  if (!company) return;
+  document.getElementById('delete-company-name').textContent = company.name;
+  document.getElementById('delete-company-confirm-input').value = '';
+  document.getElementById('delete-company-confirm-btn').disabled = true;
+  document.getElementById('modal-delete-company').classList.remove('hidden');
+}
+
+function closeDeleteCompanyModal() {
+  document.getElementById('modal-delete-company').classList.add('hidden');
+}
+
+function onDeleteCompanyConfirmInput() {
+  const company = companies.find(c => c.id === currentCompanyId);
+  const typed = document.getElementById('delete-company-confirm-input').value;
+  document.getElementById('delete-company-confirm-btn').disabled = !company || typed !== company.name;
+}
+
+async function confirmDeleteCompany() {
+  const id = currentCompanyId;
   try {
     await api(`/api/companies/${id}`, { method: 'DELETE' });
   } catch (err) {
@@ -1289,6 +1337,7 @@ async function deleteCompany() {
   }
   companies = companies.filter(c => c.id !== id);
   contacts = contacts.filter(c => c.company_id !== id);
+  closeDeleteCompanyModal();
   closeCompanyDetail();
   renderCompanies();
 }
