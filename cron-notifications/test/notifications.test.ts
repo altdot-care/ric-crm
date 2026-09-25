@@ -23,7 +23,7 @@ test('real push transport encrypts and signs payload, blocks redirects and arbit
     requests++;
     assert.equal(url, subscription.endpoint);
     assert.equal(options?.method, 'POST');
-    assert.equal(options?.redirect, 'error');
+    assert.equal(options?.redirect, 'manual');
     const headers = new Headers(options?.headers);
     assert.equal(headers.get('content-encoding'), 'aes128gcm');
     assert.match(headers.get('authorization')!, /^vapid t=/);
@@ -35,6 +35,27 @@ test('real push transport encrypts and signs payload, blocks redirects and arbit
     assert.equal(await sendPush(env, subscription, JSON.stringify({ body: 'secret reminder' })), 201);
     await assert.rejects(sendPush(env, { ...subscription, endpoint: 'https://localhost/private' }, '{}'), /Unsupported/);
     assert.equal(requests, 1);
+  } finally { globalThis.fetch = original; }
+});
+
+test('a push-service redirect is not followed and comes back as a non-2xx failure code', async () => {
+  const { sendPush } = await import('../src/notifications.ts');
+  const keys = webpush.generateVAPIDKeys();
+  const ecdh = createECDH('prime256v1'); ecdh.generateKeys();
+  const env = { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '', VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
+  const subscription = { endpoint: 'https://fcm.googleapis.com/test', keys: { p256dh: ecdh.getPublicKey().toString('base64url'), auth: randomBytes(16).toString('base64url') } };
+  const original = globalThis.fetch;
+  let requests = 0, redirect: unknown;
+  globalThis.fetch = async (_url, options) => {
+    requests++; redirect = options?.redirect;
+    return new Response(null, { status: 302, headers: { Location: 'https://evil.example/collect' } });
+  };
+  try {
+    const code = await sendPush(env, subscription, '{}');
+    assert.equal(code, 302);
+    assert.ok(!(code >= 200 && code < 300), 'deliver() must count a 3xx as failed');
+    assert.equal(requests, 1);
+    assert.equal(redirect, 'manual');
   } finally { globalThis.fetch = original; }
 });
 

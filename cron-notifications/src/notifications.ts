@@ -109,9 +109,10 @@ export async function sendPush(env: NotificationEnv, subscription: Subscription,
     TTL: 86400,
     vapidDetails: { subject: env.VAPID_SUBJECT || 'mailto:support@ricroyal.co.th', publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY },
   });
+  // Workers reject the "error" redirect mode. 'manual' returns a 3xx un-followed; deliver() counts any non-2xx as failed.
   const response = await fetch(details.endpoint, {
     method: details.method, headers: details.headers,
-    body: new Uint8Array(details.body!), redirect: 'error', signal: AbortSignal.timeout(10000),
+    body: new Uint8Array(details.body!), redirect: 'manual', signal: AbortSignal.timeout(10000),
   });
   await response.body?.cancel();
   return response.status;

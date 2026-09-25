@@ -25,7 +25,7 @@ test('sends a POST to the Worker path with the Bearer secret and JSON body, retu
   assert.equal(seen.init.method, 'POST');
   assert.equal(seen.init.headers.Authorization, 'Bearer s3cret');
   assert.equal(seen.init.body, JSON.stringify({ ownerId: 'abc' }));
-  assert.equal(seen.init.redirect, 'error');
+  assert.equal(seen.init.redirect, 'manual');
 });
 
 test('a network failure, a non-2xx reply and a non-JSON reply are all 502 with a Thai message', async () => {
@@ -41,6 +41,18 @@ test('a network failure, a non-2xx reply and a non-JSON reply are all 502 with a
     assert.match(result.error, /Cron Worker/);
     assert.doesNotMatch(result.error, /s3cret|ECONNREFUSED/, 'never leak the secret or raw errors');
   }
+});
+
+test('a redirect from the Worker is never followed and is a 502 failure without the secret', async () => {
+  let calls = 0, init;
+  const fetchImpl = async (_url, i) => { calls++; init = i; return new Response(null, { status: 302, headers: { Location: 'https://evil.example/collect' } }); };
+  const result = await callNotifier('/preview/dry-run', {}, config(fetchImpl));
+  assert.equal(calls, 1, 'the redirect target must not be requested');
+  assert.equal(init.redirect, 'manual');
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 502);
+  assert.match(result.error, /[\u0E00-\u0E7F]/, 'Thai message');
+  assert.doesNotMatch(result.error, /s3cret|evil\.example/);
 });
 
 test('notifierResponse maps results to HTTP responses', async () => {

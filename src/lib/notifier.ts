@@ -15,7 +15,9 @@ export async function callNotifier(path: NotifierPath, body: unknown, config: No
       headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
-      redirect: 'error',
+      // Workers reject the "error" redirect mode. 'manual' returns a 3xx as-is without following it (the secret is never
+      // forwarded); a 3xx is not ok, so it is reported as a failure below.
+      redirect: 'manual',
     });
   } catch {
     return { ok: false, status: 502, error: 'เชื่อมต่อ Cron Worker ไม่ได้ (ตรวจว่ารันอยู่และ NOTIFIER_URL ถูกต้อง)' };
