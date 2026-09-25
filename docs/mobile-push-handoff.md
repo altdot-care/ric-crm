@@ -82,15 +82,34 @@ Playwright spec `tests/browser/preview.spec.ts` เปิด stub ที่พ�
 Task 10 ของแผนเดิมกำหนดให้ยืนยันก่อนสร้าง production Worker, Cron Trigger และ secrets
 ยังไม่ได้ deploy หรือส่งแจ้งเตือนจริงจากงานรอบนี้
 
-1. ตรวจ production Supabase project ให้ถูกต้อง และ apply migration ทุกไฟล์ใน `../supabase/migrations/` ตามลำดับชื่อไฟล์
-   (รวมตาราง `push_subscriptions` และ `notification_log`; หลัง squash มี `20260920000000_init.sql` และ `20260926090000_activities_followup_time.sql` ซึ่งเพิ่มเวลานัดติดตาม)
+**ลำดับที่ต้องทำ (ห้ามสลับ)**
+
+1. **Migration ฐานข้อมูลก่อนเสมอ**
+   - ฐานข้อมูล production ที่มีอยู่แล้ว: apply **เฉพาะ** `20260926090000_activities_followup_time.sql` ห้าม apply `20260920000000_init.sql` ซ้ำ (เป็น schema ที่ squash รวมไว้ จะชนกับของที่มีอยู่แล้ว)
+   - project ใหม่ที่ยังว่าง: apply ทุกไฟล์ใน `../supabase/migrations/` ตามลำดับชื่อไฟล์
+2. **จากนั้น deploy Cron Worker** (ตั้ง secrets ก่อน deploy)
+3. **สุดท้าย deploy เว็บหลัก**
+
+> ⚠️ `POST`/`PUT /api/activities` เขียน `followup_time` ทุกครั้ง และ Cron อ่านคอลัมน์นี้ ถ้า push/deploy `main` ของ ric-crm (หรือ build ของ Cloudflare ที่ต่อกับ git) ก่อน apply migration การบันทึก Log จะตอบ 500 ทุกครั้งและ Cron จะล้มทุกรอบ
+
+ขั้นตอนละเอียด:
+
+1. ตรวจ production Supabase project ให้ถูกต้อง แล้ว apply migration ตามข้อ 1 ของลำดับด้านบน
+   (ตาราง `push_subscriptions` และ `notification_log` อยู่ใน `20260920000000_init.sql`; `20260926090000_activities_followup_time.sql` เพิ่มเวลานัดติดตาม)
 2. สร้าง VAPID keypair สำหรับ production เก็บ private key ใน secret manager อย่า commit และอย่าเปลี่ยน keypair หลังมีผู้สมัครโดยไม่วางแผนสมัครใหม่
-3. ตั้ง `VAPID_PUBLIC_KEY` ให้เว็บหลัก จากนั้น `pnpm deploy`
-4. ตั้ง secrets ให้ Worker `ric-crm-notifications-cron`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` ของ production, `VAPID_PUBLIC_KEY` ที่ตรงกับเว็บ และ `VAPID_PRIVATE_KEY`
-5. ตรวจ `VAPID_SUBJECT` ให้เป็นอีเมลผู้ดูแลที่ใช้งานจริง (ค่าเริ่มต้น `mailto:support@ricroyal.co.th`)
-6. จาก `cron-notifications/` ใช้ `pnpm exec wrangler secret put <NAME> --config wrangler.toml` และ `pnpm run deploy`
-7. ตรวจ Cron Trigger `*/5 * * * *` และจำนวน `sent/skipped/failed/pruned` ใน Worker logs
-8. ตั้ง `NOTIFIER_SECRET` เป็น secret ของทั้งสอง Worker และ `NOTIFIER_URL` ของเว็บเป็นที่อยู่ Worker (แนะนำ service binding แทน URL สาธารณะ) จนกว่าจะตั้ง `NOTIFIER_SECRET` ที่ Worker ทางเรียก preview ของ Worker จะปิด (503); cron เป็น `*/5 * * * *` อยู่ใน `wrangler.toml` แล้ว; apply migration `20260926090000_activities_followup_time.sql`
+3. ตั้ง secrets ให้ Worker `ric-crm-notifications-cron`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` ของ production, `VAPID_PUBLIC_KEY` ที่ตรงกับเว็บ และ `VAPID_PRIVATE_KEY`
+4. ตรวจ `VAPID_SUBJECT` ให้เป็นอีเมลผู้ดูแลที่ใช้งานจริง (ค่าเริ่มต้น `mailto:support@ricroyal.co.th`)
+5. จาก `cron-notifications/` ใช้ `pnpm exec wrangler secret put <NAME> --config wrangler.toml` และ `pnpm run deploy`
+6. ตรวจ Cron Trigger `*/5 * * * *` (อยู่ใน `wrangler.toml` แล้ว) และจำนวน `sent/skipped/failed/pruned` ใน Worker logs
+7. ตั้ง `VAPID_PUBLIC_KEY` ให้เว็บหลัก จากนั้น `pnpm deploy` (หลัง migration และ Cron Worker เท่านั้น)
+8. การตั้งค่าหน้า `/preview`:
+   - ตั้ง `NOTIFIER_SECRET` เป็น secret ของทั้งสอง Worker (เว็บและ Cron) ให้เป็นค่าเดียวกัน
+   - ทางเรียก `/preview/*` ของ Cron Worker ตอบ 503 จนกว่าจะตั้ง `NOTIFIER_SECRET` ยาวอย่างน้อย 32 ตัวอักษรเป็น Worker secret
+   - `NOTIFIER_URL` ของเว็บเป็น URL ธรรมดาของ Cron Worker (ตอนนี้เว็บรองรับแค่ URL; ถ้าจะใช้ Cloudflare service binding ต้องแก้โค้ดก่อน)
+   - path ใน `NOTIFIER_URL` จะถูกตัดทิ้ง ให้ใส่แค่ scheme + host เช่น `https://<worker>.workers.dev`
+   - migration `20260926090000_activities_followup_time.sql` ต้อง apply แล้วตามลำดับด้านบน
+
+นัดติดตามแจ้งเตือนเฉพาะในวันที่นัดเท่านั้น ไม่มีการแจ้ง "เลยกำหนด" สำหรับนัดติดตาม
 
 ## ตรวจบนเครื่องจริงหลัง deploy
 
