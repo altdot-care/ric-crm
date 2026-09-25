@@ -20,6 +20,9 @@ export default defineConfig({
       SUPABASE_SECRET_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       // Public key read at runtime, forwarded via /api/me. Private key belongs only to cron.
       VAPID_PUBLIC_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // /preview → Cron Worker (test push, dry-run). Optional: preview reports "not configured" without them.
+      NOTIFIER_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      NOTIFIER_SECRET: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
 });

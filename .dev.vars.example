@@ -7,3 +7,7 @@ SUPABASE_PUBLISHABLE_KEY=<sb_publishable_... from Supabase → Project Settings 
 SUPABASE_SECRET_KEY=<sb_secret_... — needed only for the root "ผู้ใช้" page>
 # Optional: public VAPID key, matching cron-notifications/.dev.vars. Never put the private key here.
 VAPID_PUBLIC_KEY=
+# /preview (root only) calls the Cron Worker with a shared secret. Generate both with:
+#   node cron-notifications/scripts/setup-notifier.mjs
+NOTIFIER_URL=http://localhost:8787
+NOTIFIER_SECRET=<same value as cron-notifications/.dev.vars>

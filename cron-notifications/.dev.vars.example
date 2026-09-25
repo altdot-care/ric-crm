@@ -3,3 +3,4 @@ SUPABASE_SECRET_KEY=<local service-role key>
 VAPID_PUBLIC_KEY=<same public key as main app>
 VAPID_PRIVATE_KEY=<private key, worker only>
 VAPID_SUBJECT=mailto:support@ricroyal.co.th
+NOTIFIER_SECRET=<same value as the web app's .dev.vars — protects /preview/* on this Worker>

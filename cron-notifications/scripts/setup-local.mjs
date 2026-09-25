@@ -1,3 +1,4 @@
+import { ensureNotifierEnv } from './notifier-env.mjs';
 import { readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
 import webpush from 'web-push';
 
@@ -21,4 +22,5 @@ writeFileSync(workerPath, [
 const app = readFileSync(appPath, 'utf8').replace(/^VAPID_PUBLIC_KEY=.*\n?/gm, '');
 writeFileSync(appPath, `${app.trimEnd()}\nVAPID_PUBLIC_KEY=${keys.publicKey}\n`);
 chmodSync(appPath, 0o600);
+ensureNotifierEnv({ appPath: appPath.pathname, workerPath: workerPath.pathname });
 console.log('Local VAPID keys saved in ignored .dev.vars files. Restart the app dev server.');
