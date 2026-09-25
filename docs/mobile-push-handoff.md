@@ -85,8 +85,8 @@ Task 10 ของแผนเดิมกำหนดให้ยืนยัน
 **ลำดับที่ต้องทำ (ห้ามสลับ)**
 
 1. **Migration ฐานข้อมูลก่อนเสมอ**
-   - ฐานข้อมูล production ที่มีอยู่แล้ว: apply **เฉพาะ** `20260926090000_activities_followup_time.sql` ห้าม apply `20260920000000_init.sql` ซ้ำ (เป็น schema ที่ squash รวมไว้ จะชนกับของที่มีอยู่แล้ว)
-   - project ใหม่ที่ยังว่าง: apply ทุกไฟล์ใน `../supabase/migrations/` ตามลำดับชื่อไฟล์
+   - `../supabase/migrations/` มีไฟล์เดียว `20260920000000_init.sql` เป็น schema สุดท้ายทั้งหมด (รวมตาราง `push_subscriptions`, `notification_log` และคอลัมน์ `followup_time`) apply กับฐานข้อมูลที่ยังว่างด้วย `supabase db push`
+   - ไฟล์นี้ยังไม่เคยถูก apply ลง production ตอนที่ยุบรวม ถ้าภายหลังมีการ apply ไปแล้ว ห้ามแก้เนื้อหาไฟล์เดิม ให้เพิ่มไฟล์ migration ใหม่แทน (ไม่งั้น `db push` จะไม่รันซ้ำ)
 2. **จากนั้น deploy Cron Worker** (ตั้ง secrets ก่อน deploy)
 3. **สุดท้าย deploy เว็บหลัก**
 
@@ -95,7 +95,6 @@ Task 10 ของแผนเดิมกำหนดให้ยืนยัน
 ขั้นตอนละเอียด:
 
 1. ตรวจ production Supabase project ให้ถูกต้อง แล้ว apply migration ตามข้อ 1 ของลำดับด้านบน
-   (ตาราง `push_subscriptions` และ `notification_log` อยู่ใน `20260920000000_init.sql`; `20260926090000_activities_followup_time.sql` เพิ่มเวลานัดติดตาม)
 2. สร้าง VAPID keypair สำหรับ production เก็บ private key ใน secret manager อย่า commit และอย่าเปลี่ยน keypair หลังมีผู้สมัครโดยไม่วางแผนสมัครใหม่
 3. ตั้ง secrets ให้ Worker `ric-crm-notifications-cron`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` ของ production, `VAPID_PUBLIC_KEY` ที่ตรงกับเว็บ และ `VAPID_PRIVATE_KEY`
 4. ตรวจ `VAPID_SUBJECT` ให้เป็นอีเมลผู้ดูแลที่ใช้งานจริง (ค่าเริ่มต้น `mailto:support@ricroyal.co.th`)
@@ -107,7 +106,7 @@ Task 10 ของแผนเดิมกำหนดให้ยืนยัน
    - ทางเรียก `/preview/*` ของ Cron Worker ตอบ 503 จนกว่าจะตั้ง `NOTIFIER_SECRET` ยาวอย่างน้อย 32 ตัวอักษรเป็น Worker secret
    - `NOTIFIER_URL` ของเว็บเป็น URL ธรรมดาของ Cron Worker (ตอนนี้เว็บรองรับแค่ URL; ถ้าจะใช้ Cloudflare service binding ต้องแก้โค้ดก่อน)
    - path ใน `NOTIFIER_URL` จะถูกตัดทิ้ง ให้ใส่แค่ scheme + host เช่น `https://<worker>.workers.dev`
-   - migration `20260926090000_activities_followup_time.sql` ต้อง apply แล้วตามลำดับด้านบน
+   - migration (`20260920000000_init.sql`) ต้อง apply แล้วตามลำดับด้านบน
 
 นัดติดตามแจ้งเตือนเฉพาะในวันที่นัดเท่านั้น ไม่มีการแจ้ง "เลยกำหนด" สำหรับนัดติดตาม
 
