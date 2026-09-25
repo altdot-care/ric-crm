@@ -49,7 +49,12 @@ test('Log form has a time input tied to the follow-up date, and entries show the
   assert.match(html, /id="lead-act-followup-time"[^>]*type="time"|type="time"[^>]*id="lead-act-followup-time"/);
   assert.match(html, /function syncFollowupTime/);
   assert.match(html, /function followupLabel/);
-  assert.match(html, /followup_time: document\.getElementById\('lead-act-followup-time'\)\.value/);
+  // The time is only sent with a date, so the API never receives a time without one.
+  assert.match(html, /followup_time: followup \? document\.getElementById\('lead-act-followup-time'\)\.value : ''/);
+  assert.match(html, /const followup = document\.getElementById\('lead-act-followup'\)\.value;/);
+  // iOS "Clear" on the date picker may fire only `change`, so both events re-sync the time input.
+  assert.match(html, /id="lead-act-followup"[^>]*oninput="syncFollowupTime\(\)"/);
+  assert.match(html, /id="lead-act-followup"[^>]*onchange="syncFollowupTime\(\)"/);
   assert.equal((html.match(/esc\(followupLabel\(a\)\)/g) || []).length, 2, 'both the feed and the Log tab use followupLabel');
   assert.doesNotMatch(html, /นัดติดตาม: \$\{esc\(a\.followup\)\}/);
 });

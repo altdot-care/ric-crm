@@ -422,7 +422,7 @@ const CERT_OPTIONS = [
             <option value="note">📝 บันทึก</option>
           </select>
           <div class="flex gap-2">
-            <input class="field-input min-w-0 flex-1" id="lead-act-followup" type="date" aria-label="วันนัดติดตาม" oninput="syncFollowupTime()" />
+            <input class="field-input min-w-0 flex-1" id="lead-act-followup" type="date" aria-label="วันนัดติดตาม" oninput="syncFollowupTime()" onchange="syncFollowupTime()" />
             <input class="field-input w-28 shrink-0" id="lead-act-followup-time" type="time" aria-label="เวลานัดติดตาม" disabled />
           </div>
         </div>
@@ -1182,11 +1182,13 @@ let editingActivityId = null;
 
 async function saveLeadActivity(e) {
   e.preventDefault();
+  const followup = document.getElementById('lead-act-followup').value;
   const data = {
     type: document.getElementById('lead-act-type').value,
     description: document.getElementById('lead-act-description').value,
-    followup: document.getElementById('lead-act-followup').value,
-    followup_time: document.getElementById('lead-act-followup-time').value,
+    followup,
+    // Only with a date: the API rejects a time without one.
+    followup_time: followup ? document.getElementById('lead-act-followup-time').value : '',
   };
   try {
     if (editingActivityId) {
