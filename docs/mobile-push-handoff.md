@@ -72,8 +72,8 @@ curl --fail http://127.0.0.1:8799/
 Task 10 ของแผนเดิมกำหนดให้ยืนยันก่อนสร้าง production Worker, Cron Trigger และ secrets
 ยังไม่ได้ deploy หรือส่งแจ้งเตือนจริงจากงานรอบนี้
 
-1. ตรวจ production Supabase project ให้ถูกต้อง และ apply migration สองไฟล์ใน `../supabase/migrations/`:
-   `20260926050000_push_subscriptions.sql` และ `20260926060000_notification_log.sql`
+1. ตรวจ production Supabase project ให้ถูกต้อง และ apply migration ทุกไฟล์ใน `../supabase/migrations/` ตามลำดับชื่อไฟล์
+   (รวมตาราง `push_subscriptions` และ `notification_log`)
 2. สร้าง VAPID keypair สำหรับ production เก็บ private key ใน secret manager อย่า commit และอย่าเปลี่ยน keypair หลังมีผู้สมัครโดยไม่วางแผนสมัครใหม่
 3. ตั้ง `VAPID_PUBLIC_KEY` ให้เว็บหลัก จากนั้น `pnpm deploy`
 4. ตั้ง secrets ให้ Worker `ric-crm-notifications-cron`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` ของ production, `VAPID_PUBLIC_KEY` ที่ตรงกับเว็บ และ `VAPID_PRIVATE_KEY`

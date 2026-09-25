@@ -33,7 +33,7 @@
 
 - root **สร้างจากหน้าเว็บไม่ได้** และเปลี่ยน role ของ root / ของตัวเองไม่ได้ — ตั้งด้วย SQL เท่านั้น
 - ลบผู้ใช้: lead/กิจกรรม/ใบรับรองของเขาจะโอนให้ root ที่กดลบ
-- ทั้งหมดบังคับด้วย RLS ใน [supabase/migrations/20260920100000_roles_root.sql](../supabase/migrations/20260920100000_roles_root.sql) ทดสอบด้วย `supabase/tests/roles.test.sql`
+- ทั้งหมดบังคับด้วย RLS ใน [supabase/migrations/20260920000000_init.sql](../supabase/migrations/20260920000000_init.sql) ทดสอบด้วย `supabase/tests/roles.test.sql`
 
 ## Development
 
@@ -58,7 +58,7 @@ pnpm check                       # type-check
 
 ## ตั้งค่า Supabase (ครั้งแรก)
 
-1. รัน migration ตามลำดับ `../supabase/migrations/20260920000000_init.sql` แล้วตามด้วย `20260920100000_roles_root.sql` (โฟลเดอร์ `supabase/` อยู่นอก repo นี้ ที่ `~/Workspaces/supabase`) — วางใน **SQL Editor** ของ Supabase หรือรัน `pnpm dlx supabase db push` จากโฟลเดอร์นั้น
+1. รัน migration ทุกไฟล์ใน `../supabase/migrations/` ตามลำดับชื่อไฟล์ (โฟลเดอร์ `supabase/` อยู่นอก repo นี้ ที่ `~/Workspaces/supabase`) — วางใน **SQL Editor** ของ Supabase หรือรัน `pnpm dlx supabase db push` จากโฟลเดอร์นั้น
 2. Authentication → Providers → Email: **ปิด "Allow new users to sign up"** (ทีมภายในเท่านั้น) — ผู้ใช้ทั้งหมดสร้างโดย root ในหน้า "ผู้ใช้" ของแอป (บัญชี root แรกให้สร้างที่ Authentication → Users → *Add user* แล้วตั้ง role ตามข้อ 3)
 3. ผู้ใช้ที่สร้างนอกแอปได้ role `sales` อัตโนมัติ — ตั้งบัญชี root แรกด้วย SQL:
 
