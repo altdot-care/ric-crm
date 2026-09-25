@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test": "node --experimental-strip-types --test --test-concurrency=1 test/*.test.ts",
     "check": "tsc --noEmit",
     "dev": "wrangler dev --config wrangler.toml --test-scheduled",
     "deploy": "wrangler deploy --config wrangler.toml",

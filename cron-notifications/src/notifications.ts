@@ -8,20 +8,23 @@ export interface NotificationEnv {
   VAPID_PUBLIC_KEY: string;
   VAPID_PRIVATE_KEY: string;
   VAPID_SUBJECT?: string;
+  NOTIFIER_SECRET?: string;
 }
 
-interface Candidate {
+export interface Candidate {
   kind: string;
   entityId: string;
   ownerId: string;
   title: string;
   body: string;
 }
-interface Subscription { endpoint: string; keys: { p256dh: string; auth: string } }
+export interface Subscription { endpoint: string; keys: { p256dh: string; auth: string } }
+export type SendFn = (subscription: Subscription, payload: string) => Promise<number>;
+
 interface RunOptions {
   client?: SupabaseClient;
   now?: Date;
-  send?: (subscription: Subscription, payload: string) => Promise<number>;
+  send?: SendFn;
 }
 
 function bangkokDate(now: Date): string {
@@ -114,6 +117,33 @@ export async function sendPush(env: NotificationEnv, subscription: Subscription,
   return response.status;
 }
 
+/** Send one payload to each subscription, pruning ones the push service says are gone. */
+export async function deliver(
+  db: SupabaseClient, send: SendFn,
+  subscriptions: { id: string; endpoint: string; p256dh: string; auth: string }[], payload: string,
+) {
+  let sent = 0, failed = 0, pruned = 0;
+  for (const sub of subscriptions) {
+    try {
+      const code = await send({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+      if (code >= 200 && code < 300) sent++;
+      else {
+        failed++;
+        if (code === 404 || code === 410) {
+          const { error } = await db.from('push_subscriptions').delete().eq('id', sub.id);
+          if (error) console.warn('Unable to prune expired push subscription');
+          else pruned++;
+        }
+      }
+    } catch {
+      failed++;
+      // Deliberately no retry: milestone remains claimed, as documented in the spec.
+      // Do not log endpoints, keys, payloads or provider error bodies.
+    }
+  }
+  return { sent, failed, pruned };
+}
+
 export async function run(env: NotificationEnv, options: RunOptions = {}) {
   // Validate configuration before claiming any milestone.
   webpush.setVapidDetails(env.VAPID_SUBJECT || 'mailto:support@ricroyal.co.th', env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
@@ -131,25 +161,8 @@ export async function run(env: NotificationEnv, options: RunOptions = {}) {
       .upsert({ kind: candidate.kind, entity_id: candidate.entityId }, { onConflict: 'kind,entity_id', ignoreDuplicates: true }).select('id');
     if (logError) throw logError;
     if (!logged?.length) { skipped++; continue; }
-    for (const sub of valid) {
-      try {
-        const code = await send({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title: candidate.title, body: candidate.body, url: '/' }));
-        if (code >= 200 && code < 300) sent++;
-        else {
-          failed++;
-          if (code === 404 || code === 410) {
-            const { error } = await db.from('push_subscriptions').delete().eq('id', sub.id);
-            if (error) console.warn('Unable to prune expired push subscription');
-            else pruned++;
-          }
-        }
-      } catch {
-        failed++;
-        // Deliberately no retry: milestone remains claimed, as documented in the spec.
-        // Do not log endpoints, keys, payloads or provider error bodies.
-      }
-    }
+    const result = await deliver(db, send, valid, JSON.stringify({ title: candidate.title, body: candidate.body, url: '/' }));
+    sent += result.sent; failed += result.failed; pruned += result.pruned;
   }
   return { sent, skipped, failed, pruned };
 }
