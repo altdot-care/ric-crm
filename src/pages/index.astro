@@ -1272,8 +1272,11 @@ function renderCompanyDetail() {
     ? companyDeals.map(l => {
         const stage = STAGES.find(s => s.id === l.stage) || STAGES[0];
         return `<div class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 cursor-pointer" onclick="openDeal('${esc(l.id)}')">
-          <span class="text-sm">${esc(l.primary_contact?.full_name) || 'ไม่ระบุผู้ติดต่อ'}</span>
-          <span class="text-xs px-2 py-0.5 rounded-full ${stage.color}">${stage.label}</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium">${esc(l.cert?.join(', ')) || 'ไม่ระบุใบรับรอง'}</p>
+            <p class="text-xs text-ric-gray mt-0.5">${esc(l.primary_contact?.full_name) || 'ไม่ระบุผู้ติดต่อ'}</p>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded-full ${stage.color} shrink-0">${stage.label}</span>
         </div>`;
       }).join('')
     : '<p class="text-sm text-ric-gray px-4 py-3">ยังไม่มีดีลของบริษัทนี้</p>';
