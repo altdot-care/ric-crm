@@ -34,11 +34,36 @@ export const leadCreate = leadInput.partial({
 });
 export const leadUpdate = leadInput.partial();
 
-export const companyCreate = z.object({
+export const companyInput = z.object({
   name: text(200).min(1),
+  phone,
+  email: z.union([z.literal(''), z.email().max(200)]),
+  tax_id: optionalText(20),
+  website: optionalUrl(500),
+  address1: optionalText(200),
+  address2: optionalText(200),
+  sub_district: optionalText(100),
+  district: optionalText(100),
+  province: optionalText(100),
+  postcode: optionalText(50),
+  notes: optionalText(2000),
   owner_id: z.uuid().optional(),
 });
-export const companyUpdate = companyCreate.partial();
+export const companyCreate = companyInput.partial({
+  phone: true,
+  email: true,
+  tax_id: true,
+  website: true,
+  address1: true,
+  address2: true,
+  sub_district: true,
+  district: true,
+  province: true,
+  postcode: true,
+  notes: true,
+  owner_id: true,
+});
+export const companyUpdate = companyInput.partial();
 
 export const contactInput = z.object({
   company_id: z.uuid(),
