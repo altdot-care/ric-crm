@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { callNotifier, notifierResponse } from '../src/lib/notifier.ts';
+import { endpointHost } from '../src/lib/push-endpoint.ts';
 
 const config = (fetchImpl, extra = {}) => ({ url: 'http://localhost:8787', secret: 's3cret', fetchImpl, ...extra });
 
@@ -61,4 +62,10 @@ test('every preview route is root-only and takes its target from the session, no
   assert.doesNotMatch(push, /request\.json|parseBody/, 'test-push must not read a target from the request');
   const subs = read('../src/pages/api/preview/subscriptions.ts');
   assert.doesNotMatch(subs, /p256dh|\bauth\b\s*[,:)]/, 'never return encryption keys');
+});
+
+test('endpointHost returns only the hostname, or null for an unparseable endpoint', () => {
+  assert.equal(endpointHost('https://fcm.googleapis.com/fcm/send/abc'), 'fcm.googleapis.com');
+  assert.equal(endpointHost('https://user:pw@example.com:8443/x?y=1'), 'example.com');
+  for (const bad of ['not a url', '', 'https://']) assert.equal(endpointHost(bad), null, JSON.stringify(bad));
 });

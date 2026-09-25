@@ -15,3 +15,12 @@ export function isPushEndpoint(endpoint: string): boolean {
     return false;
   }
 }
+
+/** The endpoint's hostname, or null when it is not a parseable URL (stored rows can be junk). */
+export function endpointHost(endpoint: string): string | null {
+  try {
+    return new URL(endpoint).hostname || null;
+  } catch {
+    return null;
+  }
+}
