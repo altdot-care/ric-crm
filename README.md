@@ -67,7 +67,7 @@ pnpm check                       # type-check
    update public.profiles set role = 'root' where id = '<user uuid>';
    ```
 
-4. (เฉพาะ dev) ใส่ข้อมูลตัวอย่างด้วย `../supabase/seed.sql` — วางใน SQL Editor ต้องมีผู้ใช้อย่างน้อย 1 คนก่อน รันซ้ำได้ปลอดภัย **ห้ามรันบน production**
+4. (เฉพาะ dev) `supabase db reset` จะรัน `../supabase/seeds/user-init.sql` (สร้างผู้ใช้ root ของ dev) แล้วตามด้วย `../supabase/seed.sql` (ข้อมูลตัวอย่าง) ตามลำดับใน `config.toml` หรือวางสองไฟล์นี้ตามลำดับใน SQL Editor รันซ้ำได้ปลอดภัย **ห้ามรันบน production**
 
 > ข้อมูลเดิมใน Cloudflare D1 **ไม่ได้ถูกย้ายให้อัตโนมัติ** (schema เปลี่ยน: id เป็น uuid, ผู้รับผิดชอบเป็น `owner_id`) ถ้ามีข้อมูลจริงให้ export แล้ว import แยกต่างหาก
 
@@ -98,4 +98,4 @@ src/
 wrangler.jsonc           # Cloudflare Workers config
 ```
 
-นอก repo: `~/Workspaces/supabase/` — `migrations/` (schema + RLS) และ `seed.sql` (ข้อมูลตัวอย่างสำหรับ dev)
+นอก repo: `~/Workspaces/supabase/` — `migrations/` (schema + RLS), `seeds/user-init.sql` (ผู้ใช้ root สำหรับ dev) และ `seed.sql` (ข้อมูลตัวอย่างสำหรับ dev)
