@@ -172,3 +172,28 @@ test('deal Log tab edits and deletes own entries; no next-action section; stage 
   expect((await db.from('activities').select('id').eq('id', entry)).data).toEqual([]);
   await expect(page.locator('#lead-log-list')).toContainText('เปลี่ยนสถานะ');
 });
+
+test('follow-up time is saved with the date, shown in the Log, and needs a date', async ({ page }) => {
+  await page.evaluate(id => (window as any).openLeadModal(id), lead);
+  await page.locator('#lead-tab-btn-log').click();
+  await expect(page.locator('#lead-act-followup-time')).toBeDisabled();
+
+  await page.locator('#lead-act-description').fill('โทรกลับลูกค้า');
+  await page.locator('#lead-act-followup').fill('2026-12-25');
+  await expect(page.locator('#lead-act-followup-time')).toBeEnabled();
+  await page.locator('#lead-act-followup-time').fill('14:30');
+  await page.locator('#lead-act-submit').click();
+  await expect(page.locator('#lead-log-list')).toContainText('2026-12-25 14:30');
+  const stored = () => db.from('activities').select('followup, followup_time').eq('lead_id', lead).eq('description', 'โทรกลับลูกค้า').single();
+  expect((await stored()).data).toEqual({ followup: '2026-12-25', followup_time: '14:30:00' });
+
+  const entry = page.locator('#lead-log-list > div', { hasText: 'โทรกลับลูกค้า' });
+  await entry.getByRole('button', { name: 'แก้ไขบันทึก' }).click();
+  await expect(page.locator('#lead-act-followup-time')).toHaveValue('14:30');
+  await page.locator('#lead-act-followup').fill('');
+  await expect(page.locator('#lead-act-followup-time')).toBeDisabled();
+  await expect(page.locator('#lead-act-followup-time')).toHaveValue('');
+  await page.locator('#lead-act-submit').click();
+  await expect(page.locator('#lead-log-list')).not.toContainText('2026-12-25');
+  expect((await stored()).data).toEqual({ followup: null, followup_time: null });
+});

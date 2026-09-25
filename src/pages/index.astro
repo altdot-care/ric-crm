@@ -417,7 +417,10 @@ const CERT_OPTIONS = [
             <option value="meeting">🤝 ประชุม</option>
             <option value="note">📝 บันทึก</option>
           </select>
-          <input class="field-input" id="lead-act-followup" type="date" />
+          <div class="flex gap-2">
+            <input class="field-input min-w-0 flex-1" id="lead-act-followup" type="date" aria-label="วันนัดติดตาม" oninput="syncFollowupTime()" />
+            <input class="field-input w-28 shrink-0" id="lead-act-followup-time" type="time" aria-label="เวลานัดติดตาม" disabled />
+          </div>
         </div>
         <textarea class="field-input h-16 resize-none" id="lead-act-description" required placeholder="บันทึกใหม่..."></textarea>
         <div class="flex gap-2">
@@ -1048,7 +1051,7 @@ function renderActivities() {
               <span class="text-xs text-ric-gray">· ${esc(companyName)}</span>
             </div>
             <p class="text-sm">${esc(a.description)}</p>
-            ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
+            ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(followupLabel(a))}</p>` : ''}
             ${a.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(a.owner.full_name)}</p>` : ''}
           </div>
         </div>`;
@@ -1124,6 +1127,19 @@ function switchLeadTab(tab) {
   if (tab === 'log') renderLeadLog();
 }
 
+// "2026-12-25 14:30" — Postgres hands the time back as "14:30:00", so trim the seconds.
+function followupLabel(a) {
+  return a.followup_time ? `${a.followup} ${a.followup_time.slice(0, 5)}` : a.followup;
+}
+
+// The time only makes sense with a date: disable it (and drop any value) while the date is empty.
+function syncFollowupTime() {
+  const time = document.getElementById('lead-act-followup-time');
+  const hasDate = !!document.getElementById('lead-act-followup').value;
+  time.disabled = !hasDate;
+  if (!hasDate) time.value = '';
+}
+
 function renderLeadLog() {
   const entries = activities
     .filter(a => a.lead_id === currentLeadId)
@@ -1151,7 +1167,7 @@ function renderLeadLog() {
             ${actions}
           </div>
           <p>${esc(a.description)}</p>
-          ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(a.followup)}</p>` : ''}
+          ${a.followup ? `<p class="text-xs text-amber-600 mt-1">🔔 นัดติดตาม: ${esc(followupLabel(a))}</p>` : ''}
         </div>`;
       }).join('')
     : '<p class="text-sm text-ric-gray text-center py-6">ยังไม่มีบันทึก</p>';
@@ -1166,6 +1182,7 @@ async function saveLeadActivity(e) {
     type: document.getElementById('lead-act-type').value,
     description: document.getElementById('lead-act-description').value,
     followup: document.getElementById('lead-act-followup').value,
+    followup_time: document.getElementById('lead-act-followup-time').value,
   };
   try {
     if (editingActivityId) {
@@ -1189,6 +1206,8 @@ function editLeadActivity(id) {
   editingActivityId = id;
   document.getElementById('lead-act-type').value = entry.type;
   document.getElementById('lead-act-followup').value = entry.followup || '';
+  syncFollowupTime();
+  document.getElementById('lead-act-followup-time').value = (entry.followup_time || '').slice(0, 5);
   document.getElementById('lead-act-description').value = entry.description;
   document.getElementById('lead-act-editing').classList.remove('hidden');
   document.getElementById('lead-act-cancel').classList.remove('hidden');
@@ -1201,6 +1220,7 @@ function editLeadActivity(id) {
 function cancelLeadActivityEdit() {
   editingActivityId = null;
   document.getElementById('lead-act-form').reset();
+  syncFollowupTime();
   document.getElementById('lead-act-editing').classList.add('hidden');
   document.getElementById('lead-act-cancel').classList.add('hidden');
   document.getElementById('lead-act-submit').textContent = 'บันทึก';

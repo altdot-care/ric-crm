@@ -43,3 +43,13 @@ test('routes write followup_time and clear it when the date is cleared', () => {
   assert.match(put, /followup_time/);
   assert.match(put, /followup === ''\s*\?\s*\{\s*followup_time:\s*null\s*\}/);
 });
+
+test('Log form has a time input tied to the follow-up date, and entries show the time', () => {
+  const html = read('../src/pages/index.astro');
+  assert.match(html, /id="lead-act-followup-time"[^>]*type="time"|type="time"[^>]*id="lead-act-followup-time"/);
+  assert.match(html, /function syncFollowupTime/);
+  assert.match(html, /function followupLabel/);
+  assert.match(html, /followup_time: document\.getElementById\('lead-act-followup-time'\)\.value/);
+  assert.equal((html.match(/esc\(followupLabel\(a\)\)/g) || []).length, 2, 'both the feed and the Log tab use followupLabel');
+  assert.doesNotMatch(html, /นัดติดตาม: \$\{esc\(a\.followup\)\}/);
+});
