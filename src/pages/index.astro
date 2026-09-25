@@ -364,8 +364,8 @@ const CERT_OPTIONS = [
           <label class="field-label">งานถัดไป</label>
           <div id="lead-next-actions-list" class="space-y-1.5 mb-2"></div>
           <div class="flex gap-2">
-            <input class="field-input flex-1" id="next-action-new-description" placeholder="เช่น ส่งใบเสนอราคา, โทรติดตาม" />
-            <input class="field-input w-36" id="next-action-new-due" type="date" />
+            <input class="field-input flex-1" id="next-action-new-description" placeholder="เช่น ส่งใบเสนอราคา, โทรติดตาม" onkeydown="if(event.key==='Enter'){event.preventDefault();addNextAction();}" />
+            <input class="field-input w-36" id="next-action-new-due" type="date" onkeydown="if(event.key==='Enter'){event.preventDefault();addNextAction();}" />
             <button type="button" id="next-action-add-btn" onclick="addNextAction()" class="btn-secondary shrink-0">+ เพิ่ม</button>
           </div>
         </div>
@@ -1643,9 +1643,14 @@ async function deleteLead() {
     alert('ลบไม่สำเร็จ: ' + err.message);
     return;
   }
-  // Deleting a lead cascade-deletes its activities too — refetch both rather than filtering
-  // `leads` locally, so the activity feed doesn't keep showing rows for a lead that's gone.
-  [leads, activities] = await Promise.all([api('/api/leads'), api('/api/activities')]);
+  // Deleting a lead cascade-deletes its activities and next_actions too — refetch all three
+  // rather than filtering `leads` locally, so the activity feed and next-action list don't
+  // keep showing rows for a lead that's gone.
+  [leads, activities, nextActions] = await Promise.all([
+    api('/api/leads'),
+    api('/api/activities'),
+    api('/api/next-actions'),
+  ]);
   closeLeadModal();
   renderAll();
 }
