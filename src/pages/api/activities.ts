@@ -23,10 +23,16 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const body = await parseBody(request, activityCreate);
   if (body instanceof Response) return body;
 
-  const { followup, date, ...rest } = body;
+  const { followup, followup_time, date, ...rest } = body;
   const { data, error } = await locals.supabase
     .from('activities')
-    .insert({ ...rest, ...(date && { date }), followup: followup || null })
+    .insert({
+      ...rest,
+      ...(date && { date }),
+      followup: followup || null,
+      // A time is only ever stored together with its date.
+      followup_time: followup ? followup_time || null : null,
+    })
     .select(COLUMNS)
     .single();
   if (error) return dbError(error);

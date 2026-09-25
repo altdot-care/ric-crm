@@ -103,6 +103,8 @@ export const contactUpdate = contactInput.omit({ company_id: true }).partial();
 // schema entirely) — never accept it from a client request.
 const activityType = z.enum(['call', 'email', 'meeting', 'note']);
 const activityFollowup = z.union([isoDate, z.literal('')]).optional();
+// Bangkok wall-clock "HH:MM" ("" = no time). The database stores it as a Postgres time.
+const activityFollowupTime = z.union([z.literal(''), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]).optional();
 
 export const activityCreate = z.object({
   lead_id: z.uuid(),
@@ -110,13 +112,21 @@ export const activityCreate = z.object({
   description: text(5000).min(1),
   date: isoDate.optional(),
   followup: activityFollowup,
+  followup_time: activityFollowupTime,
   owner_id: z.uuid().optional(),
+}).refine(d => !d.followup_time || !!d.followup, {
+  message: 'followup_time requires followup',
+  path: ['followup_time'],
 });
 // An entry stays on its deal and with its owner: only what the salesperson wrote can change.
 export const activityUpdate = z.object({
   type: activityType.optional(),
   description: text(5000).min(1).optional(),
   followup: activityFollowup,
+  followup_time: activityFollowupTime,
+}).refine(d => !d.followup_time || d.followup !== '', {
+  message: 'followup_time cannot accompany a cleared followup',
+  path: ['followup_time'],
 });
 
 export const renewalCreate = z.object({

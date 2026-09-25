@@ -15,10 +15,16 @@ export const PUT: APIRoute = async ({ locals, request, params }) => {
   if (body instanceof Response) return body;
   if (Object.keys(body).length === 0) return fail('Nothing to update', 400);
 
-  const { followup, ...rest } = body;
+  const { followup, followup_time, ...rest } = body;
+  const patch = {
+    ...rest,
+    ...(followup !== undefined && { followup: followup || null }),
+    // Clearing the date must clear the time (the database forbids a time without a date).
+    ...(followup === '' ? { followup_time: null } : followup_time !== undefined && { followup_time: followup_time || null }),
+  };
   const { data, error } = await locals.supabase
     .from('activities')
-    .update({ ...rest, ...(followup !== undefined && { followup: followup || null }) })
+    .update(patch)
     .eq('id', id.data)
     .select(COLUMNS);
   if (error) return dbError(error);
