@@ -13,10 +13,22 @@ const CERT_OPTIONS = [
 ---
 
 <Layout>
+<!-- Mobile top bar: hidden at md: and above, where the sidebar is always visible instead -->
+<div class="md:hidden sticky top-0 z-30 flex items-center gap-3 bg-ric-sidebar px-4 py-3">
+  <button onclick="toggleSidebar()" class="text-white/80 hover:text-white" aria-label="เมนู">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <div class="w-7 h-7 bg-ric-red rounded-md flex items-center justify-center font-bold text-white text-sm">R</div>
+  <p class="text-white font-semibold text-sm">RIC Sales CRM</p>
+</div>
+
+<!-- Tap-outside overlay for the mobile drawer -->
+<div id="sidebar-overlay" onclick="closeSidebar()" class="hidden md:hidden fixed inset-0 bg-black/40 z-30"></div>
+
 <div class="flex min-h-screen">
 
 <!-- SIDEBAR -->
-<aside id="sidebar" class="w-60 bg-ric-sidebar shrink-0 flex flex-col h-screen sticky top-0 overflow-hidden">
+<aside id="sidebar" class="w-60 bg-ric-sidebar shrink-0 flex flex-col h-screen fixed md:sticky top-0 -translate-x-full md:translate-x-0 transition-transform z-40 overflow-hidden">
   <!-- Logo -->
   <div class="px-5 py-5 border-b border-white/5">
     <div class="flex items-center gap-3">
@@ -70,7 +82,7 @@ const CERT_OPTIONS = [
 </aside>
 
 <!-- MAIN -->
-<main class="flex-1 overflow-auto">
+<main class="flex-1 min-w-0 overflow-auto">
   <!-- DASHBOARD -->
   <div id="view-dashboard" class="p-6">
     <div class="mb-6">
@@ -308,7 +320,7 @@ const CERT_OPTIONS = [
     <div id="lead-tab-info">
     <form id="lead-form" class="p-5 space-y-4" onsubmit="saveLead(event)">
       <input type="hidden" id="lead-id" />
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="col-span-2">
           <label class="field-label">บริษัท *</label>
           <select class="field-input" id="lead-company-id" required onchange="onLeadCompanyChange()">
@@ -390,7 +402,7 @@ const CERT_OPTIONS = [
     <div id="lead-tab-log" class="hidden p-5">
       <div id="lead-log-list" class="space-y-3 mb-4 max-h-64 overflow-y-auto"></div>
       <form onsubmit="saveLeadActivity(event)" class="border-t border-gray-100 pt-4 space-y-3">
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <select class="field-input" id="lead-act-type">
             <option value="call">📞 โทรศัพท์</option>
             <option value="email">✉️ อีเมล</option>
@@ -417,7 +429,7 @@ const CERT_OPTIONS = [
     </div>
     <form id="contact-form" class="p-5 space-y-4" onsubmit="saveContact(event)">
       <input type="hidden" id="contact-id" />
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="col-span-2">
           <label class="field-label">ชื่อ-นามสกุล *</label>
           <input class="field-input" id="contact-full-name" required placeholder="ชื่อ-นามสกุล" />
@@ -499,7 +511,7 @@ const CERT_OPTIONS = [
     </div>
     <form class="p-5 space-y-4" onsubmit="saveRenewal(event)">
       <input type="hidden" id="ren-id" />
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="col-span-2">
           <label class="field-label">บริษัท *</label>
           <input class="field-input" id="ren-company-search" list="ren-company-datalist" required
@@ -751,6 +763,18 @@ function showView(view) {
   document.getElementById('nav-' + view).classList.add('active');
   renderAll();
   if (view === 'users') loadUsers();
+  closeSidebar();
+}
+
+// ── Mobile sidebar drawer (md: and up, the sidebar is always visible instead) ──────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.toggle('hidden');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
 }
 
 function renderAll() {
