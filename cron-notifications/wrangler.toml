@@ -3,6 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Daily at 01:00 UTC (08:00 Bangkok time) — a reasonable "morning digest" time for a Thai sales team.
+# Every 5 minutes: follow-ups with a time go out within 5 minutes of it; everything else waits for
+# 08:00 Bangkok (the code enforces that — the schedule only sets how often we look).
 [triggers]
-crons = ["0 1 * * *"]
+crons = ["*/5 * * * *"]

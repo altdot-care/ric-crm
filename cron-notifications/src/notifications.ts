@@ -28,6 +28,22 @@ function bangkokDate(now: Date): string {
   return new Date(now.getTime() + 7 * 3600000).toISOString().slice(0, 10);
 }
 
+/** Anything without its own time (certificates, follow-ups with no time) goes out at 08:00 Bangkok. */
+export const DEFAULT_SEND_MINUTE = 8 * 60;
+
+/** Minutes since midnight in Bangkok. */
+export function bangkokMinutes(now: Date): number {
+  const bangkok = new Date(now.getTime() + 7 * 3600000);
+  return bangkok.getUTCHours() * 60 + bangkok.getUTCMinutes();
+}
+
+/** Minute of the day a follow-up may start sending. `time` is "HH:MM" or Postgres "HH:MM:SS". */
+export function followupStartMinute(time: string | null): number {
+  if (!time) return DEFAULT_SEND_MINUTE;
+  const [hours, minutes] = time.split(':');
+  return Number(hours) * 60 + Number(minutes);
+}
+
 export function daysUntil(date: string, now = new Date()): number {
   return Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(bangkokDate(now) + 'T00:00:00Z')) / 86400000);
 }
@@ -35,22 +51,27 @@ export function daysUntil(date: string, now = new Date()): number {
 export async function findCandidates(db: SupabaseClient, now = new Date()): Promise<Candidate[]> {
   const candidates: Candidate[] = [];
   const today = bangkokDate(now);
+  const nowMinute = bangkokMinutes(now);
   // Paginate explicitly: Supabase normally limits a response to 1000 rows.
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await db.from('activities')
-      .select('id, description, owner_id, lead:leads!lead_id(company:companies!company_id(name))')
+      .select('id, description, followup_time, owner_id, lead:leads!lead_id(company:companies!company_id(name))')
       .eq('followup', today).order('id').range(offset, offset + 499);
     if (error) throw error;
     for (const activity of data ?? []) {
+      if (followupStartMinute(activity.followup_time) > nowMinute) continue; // not time yet — a later run sends it
       const lead = activity.lead as unknown as { company: { name: string } | null } | null;
+      const time = activity.followup_time ? activity.followup_time.slice(0, 5) : null;
       candidates.push({
         kind: 'followup_due', entityId: activity.id, ownerId: activity.owner_id,
-        title: 'ถึงวันนัดติดตามวันนี้',
+        title: time ? `ถึงเวลานัดติดตาม ${time}` : 'ถึงวันนัดติดตามวันนี้',
         body: `${lead?.company?.name || ''}: ${activity.description}`,
       });
     }
     if (!data || data.length < 500) break;
   }
+  // Certificates are a morning digest: nothing before 08:00 Bangkok.
+  if (nowMinute < DEFAULT_SEND_MINUTE) return candidates;
   const cutoff = bangkokDate(new Date(now.getTime() + 30 * 86400000));
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await db.from('renewals')

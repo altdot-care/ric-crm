@@ -54,8 +54,8 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
     return fetch(target, init);
   } } });
   const company = randomUUID(), lead = randomUUID();
-  const due = randomUUID(), past = randomUUID(), renewal = randomUUID();
-  const now = new Date('2026-09-25T18:00:00Z'); // Sep 26 in Bangkok
+  const due = randomUUID(), past = randomUUID(), timed = randomUUID(), renewal = randomUUID();
+  const now = new Date('2026-09-26T02:00:00Z'); // 09:00 on Sep 26 in Bangkok
   const keys = webpush.generateVAPIDKeys();
   const env = { SUPABASE_URL: url, SUPABASE_SECRET_KEY: secret, VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey };
   const good = randomUUID(), dead = randomUUID();
@@ -75,13 +75,20 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
       { id: due, lead_id: lead, type: 'call', description: 'due', followup: '2026-09-26', owner_id: owner },
       { id: past, lead_id: lead, type: 'call', description: 'past', followup: '2026-09-25', owner_id: owner },
       { id: randomUUID(), lead_id: lead, type: 'call', description: 'future', followup: '2026-09-27', owner_id: owner },
+      { id: timed, lead_id: lead, type: 'call', description: 'timed earlier today', followup: '2026-09-26', followup_time: '08:30', owner_id: owner },
+      { id: randomUUID(), lead_id: lead, type: 'call', description: 'timed later today', followup: '2026-09-26', followup_time: '09:30', owner_id: owner },
       { id: randomUUID(), lead_id: lead, type: 'note', description: 'no follow-up', owner_id: owner },
     ]));
     ok(await db.from('renewals').insert({ id: renewal, company_id: company, cert: 'ISO 9001', audit_due: '2026-10-26', expiry: '2026-09-25', owner_id: owner }));
+    const before8 = await findCandidates(scoped, new Date('2026-09-26T00:59:00Z')); // 07:59 Bangkok
+    assert.deepEqual(before8.map(c => c.kind), [], 'nothing (follow-ups or certificates) before 08:00 Bangkok');
+    const at8 = await findCandidates(scoped, new Date('2026-09-26T01:00:00Z')); // 08:00 Bangkok
+    assert.deepEqual(at8.map(c => c.kind).sort(), ['followup_due', 'renewal_audit_due', 'renewal_expiry_overdue'],
+      'at 08:00 the untimed follow-up and certificates go; the 08:30 and 09:30 ones do not yet');
     const candidates = await findCandidates(scoped, now);
-    assert.deepEqual(candidates.map(c => c.kind).sort(), ['followup_due', 'renewal_audit_due', 'renewal_expiry_overdue']);
+    assert.deepEqual(candidates.map(c => c.kind).sort(), ['followup_due', 'followup_due', 'renewal_audit_due', 'renewal_expiry_overdue']);
     await run(env, { client: scoped, send, now });
-    const logs = () => db.from('notification_log').select('*').in('entity_id', [due, past, renewal]);
+    const logs = () => db.from('notification_log').select('*').in('entity_id', [due, past, timed, renewal]);
     assert.equal((await logs()).data?.length, 0, 'no devices must not consume the milestone');
 
     const ecdh = createECDH('prime256v1'); ecdh.generateKeys();
@@ -91,11 +98,11 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
       { id: dead, owner_id: owner, endpoint: `https://fcm.googleapis.com/${owner}/dead`, p256dh, auth },
     ]));
     await Promise.all([run(env, { client: scoped, send, now }), run(env, { client: scoped, send, now })]);
-    assert.equal(sent.length, 3, 'one send per milestone even for concurrent jobs');
-    assert.equal((await logs()).data?.length, 3);
+    assert.equal(sent.length, 4, 'one send per milestone even for concurrent jobs');
+    assert.equal((await logs()).data?.length, 4);
     assert.equal((await db.from('push_subscriptions').select('*').eq('id', dead)).data?.length, 0);
     await run(env, { client: scoped, send, now });
-    assert.equal(sent.length, 3, 'rerun must not resend');
+    assert.equal(sent.length, 4, 'rerun must not resend');
     assert.ok(sent.every(p => JSON.parse(p).url === '/'));
 
     // Independently cross the other renewal milestones; temporary failures stay claimed.
@@ -103,15 +110,27 @@ test('local database: candidates, opt-in, concurrent dedup, failed delivery and 
     const failing = async () => 503;
     const result = await run(env, { client: scoped, send: failing, now });
     assert.equal(result.failed, 2);
-    assert.equal((await logs()).data?.length, 5);
+    assert.equal((await logs()).data?.length, 6);
     await run(env, { client: scoped, send, now });
-    assert.equal(sent.length, 3, 'no retries after failed attempt, as specified');
+    assert.equal(sent.length, 4, 'no retries after failed attempt, as specified');
   } finally {
-    ok(await db.from('notification_log').delete().in('entity_id', [due, past, renewal]));
+    ok(await db.from('notification_log').delete().in('entity_id', [due, past, timed, renewal]));
     ok(await db.from('activities').delete().eq('owner_id', owner));
     ok(await db.from('renewals').delete().eq('owner_id', owner));
     ok(await db.from('leads').delete().eq('owner_id', owner));
     ok(await db.from('companies').delete().eq('owner_id', owner));
     ok(await db.auth.admin.deleteUser(owner));
   }
+});
+
+test('Bangkok minute-of-day and follow-up start minute, including the midnight boundary', async () => {
+  const m = await import('../src/notifications.ts');
+  assert.equal(m.DEFAULT_SEND_MINUTE, 480);
+  assert.equal(m.bangkokMinutes(new Date('2026-09-25T17:00:00Z')), 0, '17:00Z is 00:00 Bangkok');
+  assert.equal(m.bangkokMinutes(new Date('2026-09-25T16:59:00Z')), 23 * 60 + 59);
+  assert.equal(m.bangkokMinutes(new Date('2026-09-26T01:00:00Z')), 480);
+  assert.equal(m.followupStartMinute(null), 480);
+  assert.equal(m.followupStartMinute('14:30:00'), 870, 'Postgres time has seconds');
+  assert.equal(m.followupStartMinute('14:30'), 870, 'input time does not');
+  assert.equal(m.followupStartMinute('00:00:00'), 0, 'a midnight follow-up starts at minute 0, not the 08:00 default');
 });
