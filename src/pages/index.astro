@@ -153,10 +153,25 @@ const CERT_OPTIONS = [
     </div>
 
     <div id="company-tab-info">
-    <div class="flex justify-end mb-3">
+    <div class="flex justify-between items-center mb-3">
+      <button type="button" id="company-delete-btn" onclick="deleteCompany()" class="btn-danger text-xs px-3 py-1.5 hidden">ลบบริษัทนี้</button>
       <button type="button" id="company-edit-toggle-btn" onclick="enableCompanyEdit()" class="btn-secondary text-xs px-3 py-1.5 hidden">แก้ไข</button>
     </div>
-    <form id="company-detail-form" class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 mb-6" onsubmit="saveCompany(event)">
+
+    <div id="company-view-info" class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div><span class="text-ric-gray">ชื่อบริษัท:</span> <span class="font-medium" id="company-view-name">—</span></div>
+        <div><span class="text-ric-gray">อีเมล:</span> <span id="company-view-email">—</span></div>
+        <div><span class="text-ric-gray">เบอร์โทร:</span> <span id="company-view-phone">—</span></div>
+        <div><span class="text-ric-gray">เว็บไซต์:</span> <span id="company-view-website">—</span></div>
+        <div><span class="text-ric-gray">เลขประจำตัวผู้เสียภาษี:</span> <span id="company-view-tax-id">—</span></div>
+        <div class="sm:col-span-2 pt-1 border-t border-gray-100"></div>
+        <div class="sm:col-span-2"><span class="text-ric-gray">ที่อยู่:</span> <span id="company-view-address">—</span></div>
+        <div class="sm:col-span-2"><span class="text-ric-gray">หมายเหตุ:</span> <span id="company-view-notes" class="whitespace-pre-wrap">—</span></div>
+      </div>
+    </div>
+
+    <form id="company-detail-form" class="hidden bg-white rounded-xl p-5 shadow-xs border border-gray-100 mb-6" onsubmit="saveCompany(event)">
       <input type="hidden" id="company-edit-id" />
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="sm:col-span-2">
@@ -213,12 +228,9 @@ const CERT_OPTIONS = [
           <textarea class="field-input" id="company-edit-notes" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea>
         </div>
       </div>
-      <div class="flex justify-between pt-4">
-        <button type="button" id="company-delete-btn" onclick="deleteCompany()" class="btn-danger hidden">ลบบริษัทนี้</button>
-        <div class="flex gap-2 ml-auto">
-          <button type="button" id="company-cancel-btn" onclick="cancelCompanyEdit()" class="btn-secondary hidden">ยกเลิก</button>
-          <button type="submit" id="company-save-btn" class="btn-primary hidden">บันทึก</button>
-        </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <button type="button" id="company-cancel-btn" onclick="cancelCompanyEdit()" class="btn-secondary">ยกเลิก</button>
+        <button type="submit" id="company-save-btn" class="btn-primary">บันทึก</button>
       </div>
     </form>
     </div>
@@ -1171,6 +1183,13 @@ function cancelCompanyEdit() {
   renderCompanyDetail();
 }
 
+// Composes the address block's separate columns into one readable line for the read-only view.
+function formatCompanyAddress(company) {
+  const line1 = [company.address1, company.address2].filter(Boolean).join(' ');
+  const line2 = [company.sub_district, company.district, company.province, company.postcode].filter(Boolean).join(' ');
+  return [line1, line2].filter(Boolean).join(', ');
+}
+
 function renderCompanyDetail() {
   const company = companies.find(c => c.id === currentCompanyId);
   if (!company) { closeCompanyDetail(); return; }
@@ -1188,15 +1207,21 @@ function renderCompanyDetail() {
   populateSubDistricts('company', company.postcode || '', company.sub_district || '');
   setDistrictProvince('company', company.district || '', company.province || '');
 
+  document.getElementById('company-view-name').textContent = company.name || '—';
+  document.getElementById('company-view-email').textContent = company.email || '—';
+  document.getElementById('company-view-phone').textContent = company.phone || '—';
+  document.getElementById('company-view-website').textContent = company.website || '—';
+  document.getElementById('company-view-tax-id').textContent = company.tax_id || '—';
+  document.getElementById('company-view-address').textContent = formatCompanyAddress(company) || '—';
+  document.getElementById('company-view-notes').textContent = company.notes || '—';
+
   const mayEdit = canEdit(company);
   const editing = mayEdit && companyEditMode;
   document.getElementById('company-detail-title').textContent =
     mayEdit ? 'รายละเอียดบริษัท' : 'รายละเอียดบริษัท (แก้ไขได้เฉพาะเจ้าของ)';
-  document.querySelectorAll('#company-detail-form input:not([type=hidden]), #company-detail-form select, #company-detail-form textarea')
-    .forEach(el => { el.disabled = !editing; });
+  document.getElementById('company-view-info').classList.toggle('hidden', editing);
+  document.getElementById('company-detail-form').classList.toggle('hidden', !editing);
   document.getElementById('company-edit-toggle-btn').classList.toggle('hidden', !mayEdit || editing);
-  document.getElementById('company-save-btn').classList.toggle('hidden', !editing);
-  document.getElementById('company-cancel-btn').classList.toggle('hidden', !editing);
   document.getElementById('company-delete-btn').classList.toggle('hidden', !isRoot());
 
   const companyContacts = contacts.filter(c => c.company_id === currentCompanyId);
