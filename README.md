@@ -33,6 +33,7 @@
 
 - root **สร้างจากหน้าเว็บไม่ได้** และเปลี่ยน role ของ root / ของตัวเองไม่ได้ — ตั้งด้วย SQL เท่านั้น
 - ลบผู้ใช้: lead/กิจกรรม/ใบรับรองของเขาจะโอนให้ root ที่กดลบ
+- หน้า /preview (root เท่านั้น): ปุ่มทดสอบระบบแจ้งเตือน — ดู docs/mobile-push-handoff.md
 - ทั้งหมดบังคับด้วย RLS ใน [supabase/migrations/20260920000000_init.sql](../supabase/migrations/20260920000000_init.sql) ทดสอบด้วย `supabase/tests/roles.test.sql`
 
 ## Development

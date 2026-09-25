@@ -8,7 +8,7 @@
 - สมัครอุปกรณ์ผ่าน API ที่ใช้ session และ RLS ของเจ้าของเท่านั้น สมัครซ้ำไม่เพิ่มแถวซ้ำ
 - ยกเลิกการสมัครเก่าเมื่อเปลี่ยนบัญชี และปิดการรับแจ้งเตือนเมื่อออกจากระบบ
 - Service worker แสดง push และเปิดหน้าแอปเมื่อแตะ โดยจำกัด URL ให้อยู่ในเว็บเดียวกัน
-- Worker แยก ส่งเวลา **08:00 น. ประเทศไทย** ทุกวัน: งานครบกำหนด/เลยกำหนด, ใบรับรองใกล้วันตรวจ/วันหมดอายุภายใน 30 วัน และเมื่อเลยกำหนด
+- Worker แยก รันทุก 5 นาที: นัดติดตามในแท็บ Log ที่มีเวลาส่งตามเวลานั้น (คลาดไม่เกิน 5 นาที), นัดที่ไม่มีเวลาและใบรับรองใกล้วันตรวจ/วันหมดอายุภายใน 30 วัน (รวมเมื่อเลยกำหนด) ส่งตั้งแต่ 08:00 น. เวลาไทย
 - บันทึก milestone ก่อนส่งเพื่อป้องกันการส่งซ้ำ แม้ Cron รันพร้อมกัน; ลบ subscription ที่ปลายทางตอบ 404/410
 - เก็บงาน mobile เพิ่ม: ช่องค้นหาบริษัทเต็มแถวบนจอเล็ก, การ์ดใบรับรองเรียงแนวตั้ง, เมนูเลื่อนได้ในแนวนอน, Escape/Tab/focus และช่องกรอก 16px
 
@@ -67,19 +67,30 @@ curl --fail http://127.0.0.1:8799/
 
 ห้าม deploy `wrangler.runtime.toml` เพราะเป็น test harness เท่านั้น
 
+## ทดสอบการแจ้งเตือนด้วยหน้า /preview (root เท่านั้น)
+
+1. ตั้งค่าครั้งแรก: `node cron-notifications/scripts/setup-notifier.mjs` (สุ่ม `NOTIFIER_SECRET` ใส่ทั้งสอง `.dev.vars` และ `NOTIFIER_URL=http://localhost:8787` ให้เว็บ ไม่พิมพ์ secret) แล้ว restart `pnpm dev`
+2. รัน Worker: `pnpm --dir cron-notifications dev`
+3. ล็อกอินด้วยบัญชี root → เมนู "ทดสอบระบบ" (หรือไปที่ `/preview`)
+4. ปุ่ม 1 ส่งแจ้งเตือนทดสอบถึงอุปกรณ์ตัวเอง (ต้องเปิด 🔔 ในหน้าหลักและอนุญาตในเบราว์เซอร์ก่อน) · ปุ่ม 2 ดูอุปกรณ์ที่สมัครไว้ · ปุ่ม 3 ดูว่า cron จะส่งอะไรถ้ารันตอนนี้ (ไม่ส่งจริง)
+
+`NOTIFIER_SECRET` ต้องเป็นค่าเดียวกันทั้งสองฝั่ง ถ้า Worker ไม่ได้ตั้งค่านี้ ทางเรียก `/preview/*` ของ Worker จะปิด (503)
+Playwright spec `tests/browser/preview.spec.ts` เปิด stub ที่พอร์ตของ `NOTIFIER_URL` จึงต้องปิด `wrangler dev` ขณะรัน spec นี้
+
 ## Deploy — ต้องยืนยันก่อน
 
 Task 10 ของแผนเดิมกำหนดให้ยืนยันก่อนสร้าง production Worker, Cron Trigger และ secrets
 ยังไม่ได้ deploy หรือส่งแจ้งเตือนจริงจากงานรอบนี้
 
 1. ตรวจ production Supabase project ให้ถูกต้อง และ apply migration ทุกไฟล์ใน `../supabase/migrations/` ตามลำดับชื่อไฟล์
-   (รวมตาราง `push_subscriptions` และ `notification_log`)
+   (รวมตาราง `push_subscriptions` และ `notification_log`; หลัง squash มี `20260920000000_init.sql` และ `20260926090000_activities_followup_time.sql` ซึ่งเพิ่มเวลานัดติดตาม)
 2. สร้าง VAPID keypair สำหรับ production เก็บ private key ใน secret manager อย่า commit และอย่าเปลี่ยน keypair หลังมีผู้สมัครโดยไม่วางแผนสมัครใหม่
 3. ตั้ง `VAPID_PUBLIC_KEY` ให้เว็บหลัก จากนั้น `pnpm deploy`
 4. ตั้ง secrets ให้ Worker `ric-crm-notifications-cron`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` ของ production, `VAPID_PUBLIC_KEY` ที่ตรงกับเว็บ และ `VAPID_PRIVATE_KEY`
 5. ตรวจ `VAPID_SUBJECT` ให้เป็นอีเมลผู้ดูแลที่ใช้งานจริง (ค่าเริ่มต้น `mailto:support@ricroyal.co.th`)
 6. จาก `cron-notifications/` ใช้ `pnpm exec wrangler secret put <NAME> --config wrangler.toml` และ `pnpm run deploy`
-7. ตรวจ Cron Trigger `0 1 * * *` และจำนวน `sent/skipped/failed/pruned` ใน Worker logs
+7. ตรวจ Cron Trigger `*/5 * * * *` และจำนวน `sent/skipped/failed/pruned` ใน Worker logs
+8. ตั้ง `NOTIFIER_SECRET` เป็น secret ของทั้งสอง Worker และ `NOTIFIER_URL` ของเว็บเป็นที่อยู่ Worker (แนะนำ service binding แทน URL สาธารณะ) จนกว่าจะตั้ง `NOTIFIER_SECRET` ที่ Worker ทางเรียก preview ของ Worker จะปิด (503); cron เป็น `*/5 * * * *` อยู่ใน `wrangler.toml` แล้ว; apply migration `20260926090000_activities_followup_time.sql`
 
 ## ตรวจบนเครื่องจริงหลัง deploy
 
@@ -96,3 +107,5 @@ Task 10 ของแผนเดิมกำหนดให้ยืนยัน
 - เมื่อส่ง milestone แล้ว การเลื่อนวัน/เปลี่ยนเจ้าของของแถวเดิมไม่ reset log; รอบใบรับรองใหม่ควรใช้แถวใหม่
 - ไม่มี inbox, ตัวเลือกแยกประเภท หรือ deep link ไปแต่ละรายการ; แตะแล้วเปิด dashboard
 - การทดสอบอัตโนมัติยืนยัน UI/API/RLS/การเลือก milestone/ป้องกันส่งซ้ำ/การเข้ารหัสใน runtime แต่การรับ push จริงบน Android/iOS ต้องตรวจหลัง deploy
+- Cloudflare Workers ไม่รับ `fetch(..., { redirect: 'error' })` (รับเฉพาะ `follow`/`manual`) ทุกการเรียกออก (`sendPush` ใน Cron Worker และการที่เว็บเรียก Worker) จึงใช้ `redirect: 'manual'` และถือว่า 3xx คือล้มเหลวโดยไม่ตามไป
+  `tests/no-unsupported-fetch-options.test.mjs` กันไม่ให้ใส่ `'error'` กลับมา
