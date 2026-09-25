@@ -914,12 +914,11 @@ function daysUntil(dateStr) {
   return Math.ceil((d - today) / 86400000);
 }
 
-function urgencyBadge(days, label) {
-  const prefix = label ? `${label} ` : '';
-  if (days < 0) return `<span class="badge-urgent">⚠ ${prefix}เลยกำหนด ${Math.abs(days)} วัน</span>`;
-  if (days <= 30) return `<span class="badge-urgent">⚠ ${prefix}${days} วัน</span>`;
-  if (days <= 90) return `<span class="badge-warning">🔔 ${prefix}${days} วัน</span>`;
-  return `<span class="badge-ok">✓ ${prefix}${days} วัน</span>`;
+function urgencyBadge(days) {
+  if (days < 0) return `<span class="badge-urgent">⚠ เลยกำหนด ${Math.abs(days)} วัน</span>`;
+  if (days <= 30) return `<span class="badge-urgent">⚠ ${days} วัน</span>`;
+  if (days <= 90) return `<span class="badge-warning">🔔 ${days} วัน</span>`;
+  return `<span class="badge-ok">✓ ${days} วัน</span>`;
 }
 
 function renderRenewals() {
@@ -932,9 +931,15 @@ function renderRenewals() {
             <p class="text-xs text-ric-gray mt-0.5">${esc(r.cert)}</p>
             ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}
           </div>
-          <div class="flex flex-col items-end gap-1">
-            ${urgencyBadge(daysUntil(r.audit_due), 'ตรวจ')}
-            ${urgencyBadge(daysUntil(r.expiry), 'หมดอายุ')}
+          <div class="flex flex-col gap-1 shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-ric-gray w-12 text-right shrink-0">ตรวจ</span>
+              ${urgencyBadge(daysUntil(r.audit_due))}
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-ric-gray w-12 text-right shrink-0">หมดอายุ</span>
+              ${urgencyBadge(daysUntil(r.expiry))}
+            </div>
           </div>
         </div>`;
       }).join('')
