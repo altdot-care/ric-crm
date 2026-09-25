@@ -921,6 +921,19 @@ function urgencyBadge(days) {
   return `<span class="badge-ok">✓ ${days} วัน</span>`;
 }
 
+// Full-sentence hover explanation for the audit-due / expiry rows on a renewal card — the badge
+// itself only has room for an icon and a day count, this is what "what does this date mean" answers.
+function renewalTooltip(days, kind) {
+  if (kind === 'audit') {
+    return days < 0
+      ? `เลยกำหนดตรวจประเมินมาแล้ว ${Math.abs(days)} วัน`
+      : `ครบกำหนดตรวจประเมินครั้งถัดไปในอีก ${days} วัน`;
+  }
+  return days < 0
+    ? `ใบรับรองหมดอายุไปแล้ว ${Math.abs(days)} วัน ต้องต่ออายุโดยเร็ว`
+    : `ใบรับรองจะหมดอายุในอีก ${days} วัน ต้องต่ออายุหลังผ่านการตรวจประเมิน`;
+}
+
 function renderRenewals() {
   const sorted = [...renewals].sort((a, b) => new Date(a.audit_due) - new Date(b.audit_due));
   document.getElementById('renewals-list').innerHTML = sorted.length
@@ -932,12 +945,12 @@ function renderRenewals() {
             ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}
           </div>
           <div class="flex flex-col gap-1 shrink-0">
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] text-ric-gray w-12 text-right shrink-0">ตรวจ</span>
+            <div class="flex items-center gap-2" title="${esc(renewalTooltip(daysUntil(r.audit_due), 'audit'))}">
+              <span class="text-[11px] text-ric-gray w-24 text-right shrink-0">ครบกำหนดตรวจ</span>
               ${urgencyBadge(daysUntil(r.audit_due))}
             </div>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] text-ric-gray w-12 text-right shrink-0">หมดอายุ</span>
+            <div class="flex items-center gap-2" title="${esc(renewalTooltip(daysUntil(r.expiry), 'expiry'))}">
+              <span class="text-[11px] text-ric-gray w-24 text-right shrink-0">หมดอายุ</span>
               ${urgencyBadge(daysUntil(r.expiry))}
             </div>
           </div>
