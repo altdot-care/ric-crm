@@ -1,0 +1,41 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+export const prerender = false;
+
+// Server-side gate: the role is read from the database as the caller, never trusted from the client.
+const { data } = await Astro.locals.supabase.from('profiles').select('role').eq('id', Astro.locals.user!.id).maybeSingle();
+if (data?.role !== 'root') return Astro.redirect('/');
+---
+
+<Layout title="ทดสอบระบบ · RIC Sales CRM">
+  <main class="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
+    <div>
+      <a href="/" class="inline-flex min-h-11 items-center text-sm text-ric-gray hover:text-ric-black">← กลับ</a>
+      <h1 class="text-xl font-semibold mt-1">ทดสอบระบบ</h1>
+      <p class="text-ric-gray text-sm mt-0.5">เฉพาะ root · ไม่แตะข้อมูลลูกค้าและไม่ส่งถึงผู้ใช้คนอื่น</p>
+    </div>
+
+    <section class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 space-y-3" aria-labelledby="h-push">
+      <h2 id="h-push" class="font-semibold text-sm">1. ส่งแจ้งเตือนทดสอบถึงอุปกรณ์ของฉัน</h2>
+      <p class="text-xs text-ric-gray">ส่งผ่านระบบส่งจริง (Cron Worker) ไปยังอุปกรณ์ที่คุณเปิดแจ้งเตือนไว้ในหน้าหลัก</p>
+      <button id="btn-test-push" type="button" class="btn-primary" onclick="previewTestPush()">ส่งแจ้งเตือนทดสอบ</button>
+      <p id="out-test-push" class="text-sm break-words" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 space-y-3" aria-labelledby="h-subs">
+      <h2 id="h-subs" class="font-semibold text-sm">2. ดูสถานะอุปกรณ์ที่สมัครไว้</h2>
+      <p class="text-xs text-ric-gray">อุปกรณ์ของคุณที่ระบบรู้จัก และสถานะของเบราว์เซอร์เครื่องนี้</p>
+      <button id="btn-subs" type="button" class="btn-primary" onclick="previewSubscriptions()">ตรวจสอบ</button>
+      <div id="out-subs" class="text-sm break-words space-y-1" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 space-y-3" aria-labelledby="h-dry">
+      <h2 id="h-dry" class="font-semibold text-sm">3. ถ้า cron รันตอนนี้ จะส่งอะไรบ้าง</h2>
+      <p class="text-xs text-ric-gray">แสดงรายการเท่านั้น ไม่ส่งจริงและไม่บันทึกว่าส่งแล้ว</p>
+      <button id="btn-dry-run" type="button" class="btn-primary" onclick="previewDryRun()">ดูรายการ</button>
+      <div id="out-dry-run" class="text-sm break-words space-y-2" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script is:inline src="/preview.js"></script>
+</Layout>
