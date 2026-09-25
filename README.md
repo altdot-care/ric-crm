@@ -73,6 +73,8 @@ pnpm check                       # type-check
 
 ## Deploy (Cloudflare Workers)
 
+> คู่มือฉบับเต็มที่เรียงลำดับ Supabase → Cron Worker → เว็บ (รวม secret ทั้งหมดและวิธีแก้ปัญหา): [docs/deploy.md](docs/deploy.md)
+
 ```bash
 pnpm wrangler login
 pnpm wrangler secret put SUPABASE_PUBLISHABLE_KEY

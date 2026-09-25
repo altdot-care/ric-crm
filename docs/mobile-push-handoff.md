@@ -79,6 +79,8 @@ Playwright spec `tests/browser/preview.spec.ts` เปิด stub ที่พ�
 
 ## Deploy — ต้องยืนยันก่อน
 
+> คู่มือ deploy ฉบับเต็มและอัปเดตล่าสุดอยู่ที่ [deploy.md](deploy.md) (ส่วนด้านล่างนี้เป็นสรุปจากงานรอบ push notifications)
+
 Task 10 ของแผนเดิมกำหนดให้ยืนยันก่อนสร้าง production Worker, Cron Trigger และ secrets
 ยังไม่ได้ deploy หรือส่งแจ้งเตือนจริงจากงานรอบนี้
 
