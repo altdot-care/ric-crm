@@ -76,6 +76,7 @@ pnpm wrangler secret put SUPABASE_PUBLISHABLE_KEY
 pnpm deploy                      # astro build && wrangler deploy
 ```
 
+- รัน migration ของ repo `supabase` ให้ครบก่อน deploy แอปนี้เสมอ — ถ้า migration ที่แอปนี้ต้องใช้ยังไม่ถึง การโหลดข้อมูลเริ่มต้นของ dashboard จะล้มเหลวทั้งหน้า ไม่ใช่แค่ส่วนที่เกี่ยวข้อง (`loadAll()` ยิง request หลายตัวพร้อมกันด้วย `Promise.all` — ตัวไหนพังก็ล้มทั้งก้อน)
 - ตั้ง `SUPABASE_URL` เป็น plain variable ใน Cloudflare dashboard (Workers → ric-crm → Settings → Variables) หรือเพิ่ม `"vars": { "SUPABASE_URL": "https://<ref>.supabase.co" }` ใน `wrangler.jsonc`
 - ครั้งแรก wrangler จะสร้าง KV namespace `SESSION` ให้อัตโนมัติ (adapter เปิดไว้เป็นค่าเริ่มต้น แอปนี้ยังไม่ได้ใช้)
 - เชื่อม GitHub กับ Workers Builds ได้: build command `pnpm build`, deploy command `pnpm wrangler deploy` (Cloudflare ตรวจจับ pnpm จาก `packageManager` + `pnpm-lock.yaml`)

@@ -989,3 +989,4 @@ Expected: every row except the two "gone" checks shows `1`; both "gone" checks s
 - No inline edit of an existing next-action's text/date — only add-new and mark-done/undone, per the spec's explicit out-of-scope note. A wrong entry is either left as-is or marked done; only root can delete it, and no delete button exists in the UI yet (the API route is there for future use).
 - No notifications — the 🔔 box on the Pipeline card is the only surface that reflects an open next-action.
 - Tie-breaking when two open items share the same due date is whatever the DB/array's stable sort happens to produce — not specified, not worth specifying at this scale.
+- Next-actions can only be added to a lead that already exists (has a real `lead_id`) — not while creating a new one in the same pass. A salesperson must save the lead first, then reopen it to add its first next-action.

@@ -117,3 +117,6 @@ open items for a lead → the 🔔 box is hidden, same as when `next_action` was
   only); editing is a cheap follow-up if it turns out to matter, deferred per YAGNI.
 - No per-item assignee different from the lead's owner — `owner_id` defaults from
   `auth.uid()` on insert, same as every other new-row pattern in this app.
+- Next-actions can only be added to a lead that already exists (has a real `lead_id`) —
+  not while creating a new one in the same pass. A salesperson must save the lead first,
+  then reopen it to add its first next-action.
