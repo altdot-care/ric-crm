@@ -108,7 +108,7 @@ test('mobile landscape drawer can reach notification controls and logout', async
 
 test('PWA manifest, icons and worker are served without login', async ({ playwright }) => {
   const guest = await playwright.request.newContext({ baseURL: origin });
-  for (const asset of ['/manifest.json', '/sw.js', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png']) {
+  for (const asset of ['/manifest.json', '/sw.js', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/icons/apple-touch-icon.png', '/icons/badge-96.png', '/favicon.ico', '/favicon-16x16.png', '/favicon-32x32.png', '/favicon-48x48.png']) {
     expect((await guest.get(asset)).status(), asset).toBe(200);
   }
   await guest.dispose();

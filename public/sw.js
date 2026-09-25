@@ -24,7 +24,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(data.title || 'RIC Sales CRM', {
     body: data.body || '',
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png', // Android shows only the alpha channel: a white silhouette, not the logo tile
     data: { url: data.url || '/' },
   }));
 });
