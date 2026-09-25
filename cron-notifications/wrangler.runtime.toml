@@ -1,0 +1,5 @@
+# Local runtime test only. Do not deploy this harness.
+name = "ric-crm-notifications-runtime-test"
+main = "test/runtime.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { json, fail, dbError } from '@/lib/api';
+import { VAPID_PUBLIC_KEY } from 'astro:env/server';
 
 export const prerender = false;
 
@@ -13,5 +14,5 @@ export const GET: APIRoute = async ({ locals }) => {
 
   const me = data.find((p) => p.id === locals.user!.id);
   if (!me) return fail('Profile not found', 403);
-  return json({ me, profiles: data });
+  return json({ me, profiles: data, vapidPublicKey: VAPID_PUBLIC_KEY || null });
 };

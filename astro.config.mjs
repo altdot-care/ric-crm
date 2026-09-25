@@ -18,6 +18,8 @@ export default defineConfig({
       SUPABASE_PUBLISHABLE_KEY: envField.string({ context: 'server', access: 'secret' }),
       // Service-role key: bypasses RLS. Only src/lib/supabase-admin.ts may read it, and only root-only routes may call that.
       SUPABASE_SECRET_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // Public key read at runtime, forwarded via /api/me. Private key belongs only to cron.
+      VAPID_PUBLIC_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
 });

@@ -1,0 +1,8 @@
+name = "ric-crm-notifications-cron"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Daily at 01:00 UTC (08:00 Bangkok time) — a reasonable "morning digest" time for a Thai sales team.
+[triggers]
+crons = ["0 1 * * *"]

@@ -15,6 +15,13 @@
   --font-mono: 'IBM Plex Mono', monospace;
 }
 
+@media (max-width: 767px) {
+  /* Keep inputs readable without Safari zooming the page when the keyboard opens. */
+  .field-input { font-size: 16px; }
+  .btn-primary, .btn-secondary, .nav-item { min-height: 44px; }
+  .modal-box { max-height: 90dvh; }
+}
+
 @layer base {
   html {
     color: var(--color-ric-black);

@@ -1,5 +1,11 @@
 # Push Notifications Implementation Plan
 
+> **Handoff (2026-09-25):** Implementation for Tasks 1–9 is present in the working tree on
+> `codex/mobile-push-completion` in both repos. See [mobile-push-handoff.md](../../mobile-push-handoff.md)
+> for the final behavior, corrections to this original plan, commands, and deployment checklist.
+> The original step text below is retained for history; db resets and automatic commits were
+> intentionally not performed. Task 10 (production deployment + physical-device test) remains pending approval.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let a user opt in to push notifications (Android + iOS) for their leads' next-action due dates and their certificate renewals' audit/expiry dates, delivered once per (item, milestone) by a daily Cloudflare Cron Trigger.
@@ -1307,5 +1313,4 @@ Expected: ends with a successful deploy message confirming the Cron Trigger sche
 
 - [ ] **Step 7: No commit** — this task is deployment/infrastructure only, no source changes
   (VAPID keys are set as Worker secrets, never committed to git).
-
 

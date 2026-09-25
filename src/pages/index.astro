@@ -15,7 +15,7 @@ const CERT_OPTIONS = [
 <Layout>
 <!-- Mobile top bar: hidden at md: and above, where the sidebar is always visible instead -->
 <div class="md:hidden sticky top-0 z-30 flex items-center gap-3 bg-ric-sidebar px-4 py-3">
-  <button onclick="toggleSidebar()" class="text-white/80 hover:text-white" aria-label="เมนู">
+  <button id="sidebar-toggle" onclick="toggleSidebar()" class="text-white/80 hover:text-white min-w-11 min-h-11 flex items-center justify-center" aria-label="เมนู" aria-controls="sidebar" aria-expanded="false">
     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
   <div class="w-7 h-7 bg-ric-red rounded-md flex items-center justify-center font-bold text-white text-sm">R</div>
@@ -28,9 +28,9 @@ const CERT_OPTIONS = [
 <div class="flex min-h-screen">
 
 <!-- SIDEBAR -->
-<aside id="sidebar" class="w-60 bg-ric-sidebar shrink-0 flex flex-col h-screen fixed md:sticky top-0 -translate-x-full md:translate-x-0 transition-transform z-40 overflow-hidden">
+<aside id="sidebar" class="w-60 bg-ric-sidebar shrink-0 flex flex-col h-dvh fixed md:sticky top-0 -translate-x-full md:translate-x-0 transition-transform z-40 overflow-y-auto">
   <!-- Logo -->
-  <div class="px-5 py-5 border-b border-white/5">
+  <div class="px-5 py-5 border-b border-white/5 shrink-0">
     <div class="flex items-center gap-3">
       <div class="w-9 h-9 bg-ric-red rounded-lg flex items-center justify-center font-bold text-white text-lg">R</div>
       <div>
@@ -41,7 +41,7 @@ const CERT_OPTIONS = [
   </div>
 
   <!-- Nav -->
-  <nav class="flex-1 px-3 py-4 space-y-1">
+  <nav class="flex-1 shrink-0 px-3 py-4 space-y-1">
     <button onclick="showView('dashboard')" class="nav-item active w-full text-left" id="nav-dashboard">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"/></svg>
       ภาพรวม
@@ -69,12 +69,19 @@ const CERT_OPTIONS = [
   </nav>
 
   <!-- Bottom -->
-  <div class="px-5 py-4 border-t border-white/5 space-y-3">
+  <div class="px-5 py-4 border-t border-white/5 space-y-3 shrink-0">
     <div>
       <p class="text-white text-xs font-medium truncate" id="me-name">—</p>
       <p class="text-white/40 text-[10px] uppercase tracking-wider" id="me-role"></p>
     </div>
-    <form method="post" action="/api/auth/logout">
+    <div id="notif-toggle-wrap" class="hidden">
+      <label class="flex min-h-11 items-center gap-2 text-white/80 text-xs cursor-pointer">
+        <input type="checkbox" id="notif-toggle" onchange="onNotifToggleChange()" aria-describedby="notif-status" class="w-4 h-4 accent-ric-red" disabled />
+        🔔 แจ้งเตือน
+      </label>
+      <p id="notif-status" class="text-white/60 text-xs leading-relaxed" role="status" aria-live="polite"></p>
+    </div>
+    <form method="post" action="/api/auth/logout" onsubmit="event.preventDefault(); logoutWithNotifications(this)">
       <button type="submit" class="text-white/60 hover:text-white text-xs">ออกจากระบบ</button>
     </form>
     <p class="text-white/25 text-[10px] font-mono">Royal International Certification</p>
@@ -82,7 +89,7 @@ const CERT_OPTIONS = [
 </aside>
 
 <!-- MAIN -->
-<main class="flex-1 min-w-0 overflow-auto">
+<main id="main-content" class="flex-1 min-w-0 overflow-auto">
   <!-- DASHBOARD -->
   <div id="view-dashboard" class="p-6">
     <div class="mb-6">
@@ -101,7 +108,7 @@ const CERT_OPTIONS = [
       </div>
       <div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <p class="text-xs text-ric-gray uppercase tracking-wider">มูลค่ารวม</p>
-        <p class="text-3xl font-bold text-ric-black mt-1" id="kpi-value">—</p>
+        <p class="text-xl sm:text-3xl break-all tabular-nums font-bold text-ric-black mt-1" id="kpi-value">—</p>
       </div>
       <div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100">
         <p class="text-xs text-ric-gray uppercase tracking-wider">ต่ออายุใน 30 วัน</p>
@@ -145,9 +152,9 @@ const CERT_OPTIONS = [
 
   <!-- COMPANIES -->
   <div id="view-companies" class="hidden p-6">
-    <div class="flex items-center justify-between gap-4 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
       <h1 class="text-xl font-semibold shrink-0">บริษัท</h1>
-      <input class="field-input flex-1 max-w-md" id="company-search" placeholder="ค้นหาบริษัท..." oninput="renderCompanies()" />
+      <input class="field-input order-last w-full sm:order-none sm:flex-1 sm:w-auto sm:max-w-md" id="company-search" aria-label="ค้นหาบริษัท" placeholder="ค้นหาบริษัท..." oninput="renderCompanies()" />
       <button onclick="openCompanyModal()" class="btn-primary shrink-0">+ เพิ่มบริษัท</button>
     </div>
     <div id="companies-list" class="space-y-3"></div>
@@ -645,6 +652,7 @@ const CERT_OPTIONS = [
   </div>
 </div>
 
+<script is:inline src="/push-notifications.js"></script>
 <script is:inline>
 // ── State ──────────────────────────────────────────────────────────────────
 let leads = [];
@@ -735,6 +743,7 @@ async function loadAll() {
     api('/api/me'),
   ]);
   me = who.me;
+  window.initPushNotifications(who.vapidPublicKey);
   profiles = who.profiles;
   setupOwnerPickers();
   leads = l;
@@ -768,14 +777,43 @@ function showView(view) {
 
 // ── Mobile sidebar drawer (md: and up, the sidebar is always visible instead) ──────────────
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-  document.getElementById('sidebar-overlay').classList.toggle('hidden');
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar.classList.contains('-translate-x-full')) { closeSidebar(); return; }
+  sidebar.inert = false;
+  sidebar.classList.remove('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+  document.getElementById('sidebar-toggle').setAttribute('aria-expanded', 'true');
+  document.getElementById('main-content').inert = true;
+  document.body.style.overflow = 'hidden';
+  sidebar.querySelector('.nav-item.active')?.focus();
 }
 
 function closeSidebar() {
-  document.getElementById('sidebar').classList.add('-translate-x-full');
+  const sidebar = document.getElementById('sidebar');
+  const mobile = !window.matchMedia('(min-width: 768px)').matches;
+  const hadFocus = sidebar.contains(document.activeElement);
+  sidebar.classList.add('-translate-x-full');
+  sidebar.inert = mobile;
   document.getElementById('sidebar-overlay').classList.add('hidden');
+  document.getElementById('sidebar-toggle').setAttribute('aria-expanded', 'false');
+  document.getElementById('main-content').inert = false;
+  document.body.style.overflow = '';
+  if (mobile && hadFocus) document.getElementById('sidebar-toggle').focus();
 }
+
+window.matchMedia('(min-width: 768px)').addEventListener('change', closeSidebar);
+document.addEventListener('keydown', event => {
+  if (document.getElementById('sidebar-overlay').classList.contains('hidden')) return;
+  if (event.key === 'Escape') closeSidebar();
+  if (event.key === 'Tab') {
+    const items = [...document.getElementById('sidebar').querySelectorAll('button, input, a[href]')]
+      .filter(el => !el.disabled && el.offsetParent !== null);
+    const first = items[0], last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+});
+closeSidebar();
 
 function renderAll() {
   if (currentView === 'dashboard') renderDashboard();
@@ -962,8 +1000,8 @@ function renderRenewals() {
   const sorted = [...renewals].sort((a, b) => new Date(a.audit_due) - new Date(b.audit_due));
   document.getElementById('renewals-list').innerHTML = sorted.length
     ? sorted.map(r => {
-        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center gap-4 cursor-pointer hover:bg-gray-50" onclick="openRenewalModal('${esc(r.id)}')">
-          <div class="flex-1">
+        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-50" onclick="openRenewalModal('${esc(r.id)}')">
+          <div class="flex-1 min-w-0 break-words w-full">
             <p class="font-medium text-sm">${esc(r.company?.name) || 'ไม่ระบุบริษัท'}</p>
             <p class="text-xs text-ric-gray mt-0.5">${esc(r.cert)}</p>
             ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}

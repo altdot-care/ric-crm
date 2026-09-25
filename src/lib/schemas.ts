@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isPushEndpoint } from './push-endpoint.ts';
 
 const text = (max: number) => z.string().trim().max(max);
 const isoDate = z.iso.date();
@@ -132,6 +133,12 @@ export const renewalCreate = z.object({
   owner_id: z.uuid().optional(),
 });
 export const renewalUpdate = renewalCreate.partial();
+
+export const pushSubscriptionCreate = z.object({
+  endpoint: z.url().max(2048).refine(isPushEndpoint, 'Unsupported push service'),
+  p256dh: z.string().regex(/^[A-Za-z0-9_-]{87}={0,1}$/),
+  auth: z.string().regex(/^[A-Za-z0-9_-]{22}={0,2}$/),
+});
 
 export const loginInput = z.object({
   email: z.email(),

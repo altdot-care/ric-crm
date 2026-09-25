@@ -1,0 +1,5 @@
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SECRET_KEY=<local service-role key>
+VAPID_PUBLIC_KEY=<same public key as main app>
+VAPID_PRIVATE_KEY=<private key, worker only>
+VAPID_SUBJECT=mailto:support@ricroyal.co.th

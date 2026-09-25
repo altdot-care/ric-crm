@@ -1,4 +1,6 @@
 # Dependency build scripts pnpm is allowed to run (blocked by default).
+packages:
+  - cron-notifications
 allowBuilds:
   esbuild: true
   workerd: true

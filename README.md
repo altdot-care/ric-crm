@@ -37,6 +37,8 @@
 
 ## Development
 
+งาน mobile/PWA และ push notifications: ดู [การตั้งค่า ทดสอบ และ deploy](docs/mobile-push-handoff.md)
+
 ต้องใช้ Node ≥ 22.12 และ pnpm (`packageManager` ระบุเวอร์ชันไว้ใน `package.json`)
 
 ```bash

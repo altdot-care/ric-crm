@@ -5,3 +5,5 @@
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_PUBLISHABLE_KEY=<sb_publishable_... from Supabase → Project Settings → API Keys>
 SUPABASE_SECRET_KEY=<sb_secret_... — needed only for the root "ผู้ใช้" page>
+# Optional: public VAPID key, matching cron-notifications/.dev.vars. Never put the private key here.
+VAPID_PUBLIC_KEY=
