@@ -492,16 +492,23 @@ const CERT_OPTIONS = [
 <div id="modal-renewal" class="modal-overlay hidden" onclick="if(event.target===this)closeRenewalModal()">
   <div class="modal-box">
     <div class="flex items-center justify-between p-5 border-b border-gray-100">
-      <h3 class="font-semibold">เพิ่มใบรับรอง</h3>
+      <h3 class="font-semibold" id="renewal-modal-title">เพิ่มใบรับรอง</h3>
       <button onclick="closeRenewalModal()" class="text-ric-gray hover:text-ric-black">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
     <form class="p-5 space-y-4" onsubmit="saveRenewal(event)">
+      <input type="hidden" id="ren-id" />
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2">
-          <label class="field-label">ชื่อบริษัท *</label>
-          <input class="field-input" id="ren-company" required placeholder="บริษัท ... จำกัด" />
+          <label class="field-label">บริษัท *</label>
+          <select class="field-input" id="ren-company-id" required onchange="onRenewalCompanyChange()">
+            <option value="">-- เลือกบริษัท --</option>
+          </select>
+        </div>
+        <div class="col-span-2 hidden" id="ren-new-company-wrap">
+          <label class="field-label">ชื่อบริษัทใหม่</label>
+          <input class="field-input" id="ren-new-company-name" placeholder="บริษัท ... จำกัด" />
         </div>
         <div class="col-span-2">
           <label class="field-label">ประเภทใบรับรอง *</label>
@@ -523,9 +530,12 @@ const CERT_OPTIONS = [
           <select class="field-input" data-owner-select id="ren-owner"></select>
         </div>
       </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeRenewalModal()" class="btn-secondary">ยกเลิก</button>
-        <button type="submit" class="btn-primary">บันทึก</button>
+      <div class="flex justify-between pt-2">
+        <button type="button" id="ren-delete-btn" onclick="deleteRenewal()" class="btn-danger hidden">ลบใบรับรองนี้</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" onclick="closeRenewalModal()" class="btn-secondary">ยกเลิก</button>
+          <button type="submit" id="ren-save-btn" class="btn-primary">บันทึก</button>
+        </div>
       </div>
     </form>
   </div>
@@ -918,9 +928,9 @@ function renderRenewals() {
   const sorted = [...renewals].sort((a, b) => new Date(a.audit_due) - new Date(b.audit_due));
   document.getElementById('renewals-list').innerHTML = sorted.length
     ? sorted.map(r => {
-        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center gap-4">
+        return `<div class="bg-white rounded-xl p-4 shadow-xs border border-gray-100 flex items-center gap-4 cursor-pointer hover:bg-gray-50" onclick="openRenewalModal('${esc(r.id)}')">
           <div class="flex-1">
-            <p class="font-medium text-sm">${esc(r.company)}</p>
+            <p class="font-medium text-sm">${esc(r.company?.name) || 'ไม่ระบุบริษัท'}</p>
             <p class="text-xs text-ric-gray mt-0.5">${esc(r.cert)}</p>
             ${r.owner?.full_name ? `<p class="text-xs text-ric-gray/60 mt-1">👤 ${esc(r.owner.full_name)}</p>` : ''}
           </div>
@@ -928,9 +938,6 @@ function renderRenewals() {
             ${urgencyBadge(daysUntil(r.audit_due), 'ตรวจ')}
             ${urgencyBadge(daysUntil(r.expiry), 'หมดอายุ')}
           </div>
-          ${isRoot() ? `<button onclick="deleteRenewal('${esc(r.id)}')" class="text-ric-gray hover:text-ric-red" title="ลบ">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>` : ''}
         </div>`;
       }).join('')
     : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีใบรับรอง · <button onclick="openRenewalModal()" class="text-ric-red hover:underline">เพิ่มใบรับรอง</button></div>';
@@ -1661,7 +1668,51 @@ async function deleteLead() {
 }
 
 // ── Renewal Modal ─────────────────────────────────────────────────────────
-function openRenewalModal() {
+function populateRenewalCompanySelect(selectedId) {
+  const sel = document.getElementById('ren-company-id');
+  const options = [...companies]
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+    .map(co => `<option value="${esc(co.id)}">${esc(co.name)}</option>`).join('');
+  sel.innerHTML = '<option value="">-- เลือกบริษัท --</option>' + options + '<option value="__new__">+ เพิ่มบริษัทใหม่...</option>';
+  sel.value = selectedId || '';
+  onRenewalCompanyChange();
+}
+
+function onRenewalCompanyChange() {
+  const companyId = document.getElementById('ren-company-id').value;
+  document.getElementById('ren-new-company-wrap').classList.toggle('hidden', companyId !== '__new__');
+}
+
+function openRenewalModal(id = null) {
+  const deleteBtn = document.getElementById('ren-delete-btn');
+  let editable = true;
+  document.getElementById('ren-id').value = id || '';
+
+  if (id) {
+    const renewal = renewals.find(r => r.id === id);
+    if (!renewal) return;
+    document.getElementById('renewal-modal-title').textContent = 'แก้ไขใบรับรอง';
+    populateRenewalCompanySelect(renewal.company_id);
+    document.getElementById('ren-cert').value = renewal.cert || '';
+    document.getElementById('ren-audit-due').value = renewal.audit_due || '';
+    document.getElementById('ren-expiry').value = renewal.expiry || '';
+    document.getElementById('ren-owner').value = renewal.owner_id;
+    deleteBtn.classList.toggle('hidden', !isRoot());
+    editable = canEdit(renewal);
+    if (!editable) document.getElementById('renewal-modal-title').textContent = 'ดูใบรับรอง (แก้ไขได้เฉพาะเจ้าของ)';
+  } else {
+    document.getElementById('renewal-modal-title').textContent = 'เพิ่มใบรับรอง';
+    document.getElementById('modal-renewal').querySelector('form').reset();
+    document.getElementById('ren-id').value = '';
+    document.getElementById('ren-owner').value = me.id;
+    populateRenewalCompanySelect('');
+    deleteBtn.classList.add('hidden');
+  }
+
+  document.querySelectorAll('#modal-renewal form input:not([type=hidden]), #modal-renewal form select')
+    .forEach(el => { el.disabled = !editable; });
+  document.getElementById('ren-save-btn').classList.toggle('hidden', !editable);
+
   document.getElementById('modal-renewal').classList.remove('hidden');
 }
 
@@ -1671,27 +1722,52 @@ function closeRenewalModal() {
 
 async function saveRenewal(e) {
   e.preventDefault();
+  const id = document.getElementById('ren-id').value;
+
+  // Validate before any POST fires — same guard as saveLead, so a blank new-company name can't
+  // leave an orphan company with no UI to remove it.
+  let companyId = document.getElementById('ren-company-id').value;
+  const creatingCompany = companyId === '__new__';
+  const newCompanyName = creatingCompany ? document.getElementById('ren-new-company-name').value.trim() : '';
+  if (creatingCompany && !newCompanyName) { alert('กรุณากรอกชื่อบริษัทใหม่'); return; }
+  if (!creatingCompany && !companyId) { alert('กรุณาเลือกบริษัท'); return; }
+
+  if (creatingCompany) {
+    try {
+      const created = await api('/api/companies', { method: 'POST', body: JSON.stringify({ name: newCompanyName }) });
+      companies.push(created);
+      companyId = created.id;
+    } catch (err) {
+      alert('เพิ่มบริษัทไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
+
   const data = {
-    company: document.getElementById('ren-company').value,
+    company_id: companyId,
     cert: document.getElementById('ren-cert').value,
     audit_due: document.getElementById('ren-audit-due').value,
     expiry: document.getElementById('ren-expiry').value,
     ...ownerField('ren-owner'),
   };
   try {
-    renewals.push(await api('/api/renewals', { method: 'POST', body: JSON.stringify(data) }));
+    if (id) {
+      await api(`/api/renewals/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    } else {
+      await api('/api/renewals', { method: 'POST', body: JSON.stringify(data) });
+    }
+    renewals = await api('/api/renewals');
   } catch (err) {
     alert('บันทึกไม่สำเร็จ: ' + err.message);
     return;
   }
   closeRenewalModal();
-  document.getElementById('modal-renewal').querySelector('form').reset();
-  document.getElementById('ren-owner').value = me.id;
   renderAll();
 }
 
-async function deleteRenewal(id) {
-  if (!confirm('ลบใบรับรองนี้ใช่ไหม?')) return;
+async function deleteRenewal() {
+  const id = document.getElementById('ren-id').value;
+  if (!id || !confirm('ลบใบรับรองนี้ใช่ไหม?')) return;
   try {
     await api(`/api/renewals/${id}`, { method: 'DELETE' });
   } catch (err) {
@@ -1699,6 +1775,7 @@ async function deleteRenewal(id) {
     return;
   }
   renewals = renewals.filter(r => r.id !== id);
+  closeRenewalModal();
   renderAll();
 }
 

@@ -4,7 +4,7 @@ import { renewalCreate } from '@/lib/schemas';
 
 export const prerender = false;
 
-const COLUMNS = '*, owner:profiles!owner_id(full_name)';
+const COLUMNS = '*, company:companies!company_id(name), owner:profiles!owner_id(full_name)';
 
 export const GET: APIRoute = async ({ locals }) => {
   const { data, error } = await locals.supabase

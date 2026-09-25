@@ -125,12 +125,13 @@ export const activityCreate = z.object({
 });
 
 export const renewalCreate = z.object({
-  company: text(200).min(1),
+  company_id: z.uuid(),
   cert: text(100).min(1),
   audit_due: isoDate,
   expiry: isoDate,
   owner_id: z.uuid().optional(),
 });
+export const renewalUpdate = renewalCreate.partial();
 
 export const loginInput = z.object({
   email: z.email(),
