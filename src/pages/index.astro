@@ -149,9 +149,13 @@ const CERT_OPTIONS = [
     <div class="flex border-b border-gray-200 mb-6">
       <button type="button" onclick="switchCompanyTab('info')" id="company-tab-btn-info" class="px-3 py-2.5 text-sm font-medium border-b-2 border-ric-red text-ric-red">ข้อมูล</button>
       <button type="button" onclick="switchCompanyTab('contacts')" id="company-tab-btn-contacts" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black">ผู้ติดต่อ</button>
+      <button type="button" onclick="switchCompanyTab('deals')" id="company-tab-btn-deals" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black">ดีล</button>
     </div>
 
     <div id="company-tab-info">
+    <div class="flex justify-end mb-3">
+      <button type="button" id="company-edit-toggle-btn" onclick="enableCompanyEdit()" class="btn-secondary text-xs px-3 py-1.5 hidden">แก้ไข</button>
+    </div>
     <form id="company-detail-form" class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 mb-6" onsubmit="saveCompany(event)">
       <input type="hidden" id="company-edit-id" />
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -211,12 +215,12 @@ const CERT_OPTIONS = [
       </div>
       <div class="flex justify-between pt-4">
         <button type="button" id="company-delete-btn" onclick="deleteCompany()" class="btn-danger hidden">ลบบริษัทนี้</button>
-        <button type="submit" id="company-save-btn" class="btn-primary ml-auto">บันทึก</button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" id="company-cancel-btn" onclick="cancelCompanyEdit()" class="btn-secondary hidden">ยกเลิก</button>
+          <button type="submit" id="company-save-btn" class="btn-primary hidden">บันทึก</button>
+        </div>
       </div>
     </form>
-
-    <h2 class="font-semibold text-sm mb-3">ดีลของบริษัทนี้</h2>
-    <div id="company-deals-list" class="bg-white rounded-xl shadow-xs border border-gray-100 divide-y divide-gray-50"></div>
     </div>
 
     <div id="company-tab-contacts" class="hidden">
@@ -225,6 +229,11 @@ const CERT_OPTIONS = [
         <button onclick="openContactModal()" class="btn-primary text-xs px-3 py-1.5">+ เพิ่มผู้ติดต่อ</button>
       </div>
       <div id="company-contacts-list" class="space-y-2"></div>
+    </div>
+
+    <div id="company-tab-deals" class="hidden">
+      <h2 class="font-semibold text-sm mb-3">ดีลของบริษัทนี้</h2>
+      <div id="company-deals-list" class="bg-white rounded-xl shadow-xs border border-gray-100 divide-y divide-gray-50"></div>
     </div>
   </div>
 
@@ -585,6 +594,7 @@ let renewals = [];
 let companies = [];
 let contacts = [];
 let currentCompanyId = null;
+let companyEditMode = false;
 let currentLeadId = null;
 let currentView = 'dashboard';
 let me = null;
@@ -1129,6 +1139,7 @@ async function createCompany(e) {
 
 async function openCompanyDetail(id) {
   currentCompanyId = id;
+  companyEditMode = false;
   document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
   document.getElementById('view-company-detail').classList.remove('hidden');
   switchCompanyTab('info');
@@ -1144,8 +1155,20 @@ function closeCompanyDetail() {
 function switchCompanyTab(tab) {
   document.getElementById('company-tab-info').classList.toggle('hidden', tab !== 'info');
   document.getElementById('company-tab-contacts').classList.toggle('hidden', tab !== 'contacts');
+  document.getElementById('company-tab-deals').classList.toggle('hidden', tab !== 'deals');
   setTabButtonActive('company-tab-btn-info', tab === 'info');
   setTabButtonActive('company-tab-btn-contacts', tab === 'contacts');
+  setTabButtonActive('company-tab-btn-deals', tab === 'deals');
+}
+
+function enableCompanyEdit() {
+  companyEditMode = true;
+  renderCompanyDetail();
+}
+
+function cancelCompanyEdit() {
+  companyEditMode = false;
+  renderCompanyDetail();
 }
 
 function renderCompanyDetail() {
@@ -1165,12 +1188,15 @@ function renderCompanyDetail() {
   populateSubDistricts('company', company.postcode || '', company.sub_district || '');
   setDistrictProvince('company', company.district || '', company.province || '');
 
-  const editable = canEdit(company);
+  const mayEdit = canEdit(company);
+  const editing = mayEdit && companyEditMode;
   document.getElementById('company-detail-title').textContent =
-    editable ? 'รายละเอียดบริษัท' : 'รายละเอียดบริษัท (แก้ไขได้เฉพาะเจ้าของ)';
+    mayEdit ? 'รายละเอียดบริษัท' : 'รายละเอียดบริษัท (แก้ไขได้เฉพาะเจ้าของ)';
   document.querySelectorAll('#company-detail-form input:not([type=hidden]), #company-detail-form select, #company-detail-form textarea')
-    .forEach(el => { el.disabled = !editable; });
-  document.getElementById('company-save-btn').classList.toggle('hidden', !editable);
+    .forEach(el => { el.disabled = !editing; });
+  document.getElementById('company-edit-toggle-btn').classList.toggle('hidden', !mayEdit || editing);
+  document.getElementById('company-save-btn').classList.toggle('hidden', !editing);
+  document.getElementById('company-cancel-btn').classList.toggle('hidden', !editing);
   document.getElementById('company-delete-btn').classList.toggle('hidden', !isRoot());
 
   const companyContacts = contacts.filter(c => c.company_id === currentCompanyId);
@@ -1222,6 +1248,7 @@ async function saveCompany(e) {
     alert('บันทึกไม่สำเร็จ: ' + err.message);
     return;
   }
+  companyEditMode = false;
   renderCompanies();
   renderCompanyDetail();
 }
