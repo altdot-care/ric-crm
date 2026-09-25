@@ -360,13 +360,14 @@ const CERT_OPTIONS = [
           <label class="field-label">ลิงก์ใบเสนอราคา</label>
           <input class="field-input" id="lead-quote-link" type="url" placeholder="https://..." />
         </div>
-        <div>
+        <div class="col-span-2 hidden" id="lead-next-actions-section">
           <label class="field-label">งานถัดไป</label>
-          <input class="field-input" id="lead-next-action" placeholder="เช่น ส่งใบเสนอราคา, โทรติดตาม" />
-        </div>
-        <div>
-          <label class="field-label">วันครบกำหนด</label>
-          <input class="field-input" id="lead-next-action-due" type="date" />
+          <div id="lead-next-actions-list" class="space-y-1.5 mb-2"></div>
+          <div class="flex gap-2">
+            <input class="field-input flex-1" id="next-action-new-description" placeholder="เช่น ส่งใบเสนอราคา, โทรติดตาม" />
+            <input class="field-input w-36" id="next-action-new-due" type="date" />
+            <button type="button" id="next-action-add-btn" onclick="addNextAction()" class="btn-secondary shrink-0">+ เพิ่ม</button>
+          </div>
         </div>
         <div data-admin-only class="hidden">
           <label class="field-label">ผู้รับผิดชอบ</label>
@@ -627,6 +628,7 @@ let activities = [];
 let renewals = [];
 let companies = [];
 let contacts = [];
+let nextActions = [];
 let currentCompanyId = null;
 let companyEditMode = false;
 let currentLeadId = null;
@@ -699,12 +701,13 @@ function setupOwnerPickers() {
 
 // ── Data loading ───────────────────────────────────────────────────────────
 async function loadAll() {
-  const [l, a, r, co, ct, who] = await Promise.all([
+  const [l, a, r, co, ct, na, who] = await Promise.all([
     api('/api/leads'),
     api('/api/activities'),
     api('/api/renewals'),
     api('/api/companies'),
     api('/api/contacts'),
+    api('/api/next-actions'),
     api('/api/me'),
   ]);
   me = who.me;
@@ -715,6 +718,7 @@ async function loadAll() {
   renewals = r;
   companies = co;
   contacts = ct;
+  nextActions = na;
   renderAll();
 }
 
@@ -1015,6 +1019,64 @@ function switchLeadTab(tab) {
   setTabButtonActive('lead-tab-btn-info', tab === 'info');
   setTabButtonActive('lead-tab-btn-log', tab === 'log');
   if (tab === 'log') renderLeadLog();
+}
+
+function renderLeadNextActions() {
+  const items = nextActions
+    .filter(n => n.lead_id === currentLeadId)
+    .sort((a, b) => {
+      if (!!a.completed_at !== !!b.completed_at) return a.completed_at ? 1 : -1;
+      if (a.completed_at && b.completed_at) return new Date(b.completed_at) - new Date(a.completed_at);
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date) - new Date(b.due_date);
+    });
+  document.getElementById('lead-next-actions-list').innerHTML = items.length
+    ? items.map(n => {
+        const dueLabel = n.due_date
+          ? new Date(n.due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+          : '';
+        return `<label class="flex items-center gap-2 text-sm ${n.completed_at ? 'text-ric-gray line-through' : ''}">
+          <input type="checkbox" ${n.completed_at ? 'checked' : ''} onchange="toggleNextActionDone('${esc(n.id)}', this.checked)" class="rounded-sm border-gray-300 text-ric-red focus:ring-ric-red" />
+          <span class="flex-1">${esc(n.description)}</span>
+          ${dueLabel ? `<span class="text-xs text-ric-gray shrink-0">${dueLabel}</span>` : ''}
+        </label>`;
+      }).join('')
+    : '<p class="text-xs text-ric-gray">ยังไม่มีงานถัดไป</p>';
+}
+
+async function addNextAction() {
+  const description = document.getElementById('next-action-new-description').value.trim();
+  if (!description) return;
+  const data = {
+    lead_id: currentLeadId,
+    description,
+    due_date: nullableInput('next-action-new-due'),
+  };
+  try {
+    await api('/api/next-actions', { method: 'POST', body: JSON.stringify(data) });
+    nextActions = await api('/api/next-actions');
+  } catch (err) {
+    alert('เพิ่มไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  document.getElementById('next-action-new-description').value = '';
+  document.getElementById('next-action-new-due').value = '';
+  renderLeadNextActions();
+  renderAll();
+}
+
+async function toggleNextActionDone(id, checked) {
+  try {
+    await api(`/api/next-actions/${id}`, { method: 'PUT', body: JSON.stringify({ completed: checked }) });
+    nextActions = await api('/api/next-actions');
+  } catch (err) {
+    alert('บันทึกไม่สำเร็จ: ' + err.message);
+    return;
+  }
+  renderLeadNextActions();
+  renderAll();
 }
 
 function renderLeadLog() {
@@ -1437,6 +1499,7 @@ async function openLeadModal(id = null) {
   currentLeadId = id;
   switchLeadTab('info');
   document.getElementById('lead-tab-btn-log').classList.toggle('hidden', !id);
+  document.getElementById('lead-next-actions-section').classList.toggle('hidden', !id);
 
   if (id) {
     const lead = leads.find(l => l.id === id);
@@ -1449,14 +1512,13 @@ async function openLeadModal(id = null) {
     document.getElementById('lead-stage').value = lead.stage || 'new';
     document.getElementById('lead-value').value = lead.value || '';
     document.getElementById('lead-quote-link').value = lead.quote_link || '';
-    document.getElementById('lead-next-action').value = lead.next_action || '';
-    document.getElementById('lead-next-action-due').value = lead.next_action_due || '';
     onStageChange();
     document.getElementById('lead-owner').value = lead.owner_id;
     document.getElementById('lead-notes').value = lead.notes || '';
     deleteBtn.classList.toggle('hidden', !isRoot());
     editable = canEdit(lead);
     if (!editable) document.getElementById('lead-modal-title').textContent = 'ดูลีด (แก้ไขได้เฉพาะเจ้าของ)';
+    renderLeadNextActions();
   } else {
     document.getElementById('lead-modal-title').textContent = 'เพิ่มลีดใหม่';
     document.getElementById('lead-form').reset();
@@ -1470,6 +1532,7 @@ async function openLeadModal(id = null) {
   document.querySelectorAll('#lead-form input:not([type=hidden]), #lead-form select, #lead-form textarea')
     .forEach(el => { el.disabled = !editable; });
   document.getElementById('lead-submit-btn').classList.toggle('hidden', !editable);
+  document.getElementById('next-action-add-btn').classList.toggle('hidden', !editable);
 
   modal.classList.remove('hidden');
 }
@@ -1538,8 +1601,6 @@ async function saveLead(e) {
     value: parseInt(document.getElementById('lead-value').value) || 0,
     // Only meaningful for the "เสนอราคา" stage, but harmless to keep if the stage changes later.
     quote_link: nullableInput('lead-quote-link'),
-    next_action: nullableInput('lead-next-action'),
-    next_action_due: nullableInput('lead-next-action-due'),
     notes: document.getElementById('lead-notes').value,
     ...ownerField('lead-owner'),
   };
