@@ -144,8 +144,14 @@ const CERT_OPTIONS = [
   <!-- COMPANY DETAIL -->
   <div id="view-company-detail" class="hidden p-6">
     <button onclick="closeCompanyDetail()" class="text-sm text-ric-gray hover:text-ric-black mb-4">← กลับ</button>
-    <h1 class="text-xl font-semibold mb-6" id="company-detail-title">รายละเอียดบริษัท</h1>
+    <h1 class="text-xl font-semibold mb-4" id="company-detail-title">รายละเอียดบริษัท</h1>
 
+    <div class="flex border-b border-gray-200 mb-6">
+      <button type="button" onclick="switchCompanyTab('info')" id="company-tab-btn-info" class="px-3 py-2.5 text-sm font-medium border-b-2 border-ric-red text-ric-red">ข้อมูล</button>
+      <button type="button" onclick="switchCompanyTab('contacts')" id="company-tab-btn-contacts" class="px-3 py-2.5 text-sm font-medium border-b-2 border-transparent text-ric-gray hover:text-ric-black">ผู้ติดต่อ</button>
+    </div>
+
+    <div id="company-tab-info">
     <form id="company-detail-form" class="bg-white rounded-xl p-5 shadow-xs border border-gray-100 mb-6" onsubmit="saveCompany(event)">
       <input type="hidden" id="company-edit-id" />
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -209,18 +215,16 @@ const CERT_OPTIONS = [
       </div>
     </form>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div>
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-semibold text-sm">ผู้ติดต่อ</h2>
-          <button onclick="openContactModal()" class="btn-primary text-xs px-3 py-1.5">+ เพิ่มผู้ติดต่อ</button>
-        </div>
-        <div id="company-contacts-list" class="space-y-2"></div>
+    <h2 class="font-semibold text-sm mb-3">ดีลของบริษัทนี้</h2>
+    <div id="company-deals-list" class="bg-white rounded-xl shadow-xs border border-gray-100 divide-y divide-gray-50"></div>
+    </div>
+
+    <div id="company-tab-contacts" class="hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-sm">ผู้ติดต่อ</h2>
+        <button onclick="openContactModal()" class="btn-primary text-xs px-3 py-1.5">+ เพิ่มผู้ติดต่อ</button>
       </div>
-      <div>
-        <h2 class="font-semibold text-sm mb-3">ดีลของบริษัทนี้</h2>
-        <div id="company-deals-list" class="bg-white rounded-xl shadow-xs border border-gray-100 divide-y divide-gray-50"></div>
-      </div>
+      <div id="company-contacts-list" class="space-y-2"></div>
     </div>
   </div>
 
@@ -509,12 +513,63 @@ const CERT_OPTIONS = [
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
-    <form id="company-form" class="p-5 space-y-4" onsubmit="createCompany(event)">
-      <div>
-        <label class="field-label">ชื่อบริษัท *</label>
-        <input class="field-input" id="company-name" required placeholder="บริษัท ... จำกัด" />
+    <form id="company-form" class="p-5" onsubmit="createCompany(event)">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="field-label">ชื่อบริษัท *</label>
+          <input class="field-input" id="company-name" required placeholder="บริษัท ... จำกัด" />
+        </div>
+        <div>
+          <label class="field-label">เบอร์โทร</label>
+          <input class="field-input" id="company-new-phone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 10)" placeholder="0812345678" />
+        </div>
+        <div>
+          <label class="field-label">อีเมล</label>
+          <input class="field-input" id="company-new-email" type="email" placeholder="name@company.com" />
+        </div>
+        <div>
+          <label class="field-label">เลขประจำตัวผู้เสียภาษี</label>
+          <input class="field-input" id="company-new-tax-id" maxlength="20" placeholder="13 หลัก" />
+        </div>
+        <div>
+          <label class="field-label">เว็บไซต์</label>
+          <input class="field-input" id="company-new-website" type="url" placeholder="https://..." />
+        </div>
+        <div class="sm:col-span-2 pt-2 border-t border-gray-100">
+          <p class="text-xs font-semibold text-ric-gray uppercase tracking-wider">ที่อยู่ (ไม่บังคับ)</p>
+        </div>
+        <div>
+          <label class="field-label">รหัสไปรษณีย์</label>
+          <input class="field-input" id="company-new-postcode" placeholder="10xxx" inputmode="numeric" pattern="[0-9]*" maxlength="5" oninput="onPostcodeInput('company-new')" />
+        </div>
+        <div>
+          <label class="field-label">ตำบล/แขวง</label>
+          <select class="field-input disabled:bg-gray-50 disabled:text-ric-gray" id="company-new-sub-district" onchange="onSubDistrictChange('company-new')" disabled>
+            <option value="">-- กรอกรหัสไปรษณีย์ก่อน --</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">อำเภอ/เขต</label>
+          <input class="field-input bg-gray-50" id="company-new-district" readonly placeholder="อัตโนมัติจากตำบล" />
+        </div>
+        <div>
+          <label class="field-label">จังหวัด</label>
+          <input class="field-input bg-gray-50" id="company-new-province" readonly placeholder="อัตโนมัติจากตำบล" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="field-label">ที่อยู่ 1</label>
+          <input class="field-input" id="company-new-address1" placeholder="บ้านเลขที่ ถนน" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="field-label">ที่อยู่ 2</label>
+          <input class="field-input" id="company-new-address2" placeholder="หมู่บ้าน/อาคาร (ถ้ามี)" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="field-label">หมายเหตุ</label>
+          <textarea class="field-input" id="company-new-notes" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea>
+        </div>
       </div>
-      <div class="flex justify-end gap-2 pt-2">
+      <div class="flex justify-end gap-2 pt-4">
         <button type="button" onclick="closeCompanyModal()" class="btn-secondary">ยกเลิก</button>
         <button type="submit" class="btn-primary">เพิ่มบริษัท</button>
       </div>
@@ -1035,8 +1090,10 @@ function renderCompanies() {
     : '<div class="bg-white rounded-xl p-8 text-center text-sm text-ric-gray shadow-xs border border-gray-100">ยังไม่มีบริษัท</div>';
 }
 
-function openCompanyModal() {
+async function openCompanyModal() {
+  await loadPostcodeData();
   document.getElementById('company-form').reset();
+  populateSubDistricts('company-new', '', '');
   document.getElementById('modal-company').classList.remove('hidden');
 }
 
@@ -1046,11 +1103,22 @@ function closeCompanyModal() {
 
 async function createCompany(e) {
   e.preventDefault();
+  const data = {
+    name: document.getElementById('company-name').value,
+    phone: document.getElementById('company-new-phone').value,
+    email: document.getElementById('company-new-email').value,
+    tax_id: nullableInput('company-new-tax-id'),
+    website: nullableInput('company-new-website'),
+    address1: nullableInput('company-new-address1'),
+    address2: nullableInput('company-new-address2'),
+    sub_district: nullableInput('company-new-sub-district'),
+    district: nullableInput('company-new-district'),
+    province: nullableInput('company-new-province'),
+    postcode: nullableInput('company-new-postcode'),
+    notes: nullableInput('company-new-notes'),
+  };
   try {
-    companies.push(await api('/api/companies', {
-      method: 'POST',
-      body: JSON.stringify({ name: document.getElementById('company-name').value }),
-    }));
+    companies.push(await api('/api/companies', { method: 'POST', body: JSON.stringify(data) }));
   } catch (err) {
     alert('เพิ่มบริษัทไม่สำเร็จ: ' + err.message);
     return;
@@ -1063,6 +1131,7 @@ async function openCompanyDetail(id) {
   currentCompanyId = id;
   document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
   document.getElementById('view-company-detail').classList.remove('hidden');
+  switchCompanyTab('info');
   await loadPostcodeData();
   renderCompanyDetail();
 }
@@ -1070,6 +1139,13 @@ async function openCompanyDetail(id) {
 function closeCompanyDetail() {
   currentCompanyId = null;
   showView('companies');
+}
+
+function switchCompanyTab(tab) {
+  document.getElementById('company-tab-info').classList.toggle('hidden', tab !== 'info');
+  document.getElementById('company-tab-contacts').classList.toggle('hidden', tab !== 'contacts');
+  setTabButtonActive('company-tab-btn-info', tab === 'info');
+  setTabButtonActive('company-tab-btn-contacts', tab === 'contacts');
 }
 
 function renderCompanyDetail() {
